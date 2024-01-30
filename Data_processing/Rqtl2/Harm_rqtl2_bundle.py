@@ -109,7 +109,7 @@ im_df_new.to_csv('./data/R_qtl2/data/Harms_sup_data/rqlt2_data-H/phenotype_im_Ha
 # Abstract of the paper at G3 Genes|Genomes|Genetics, https://doi.org/10.1534/g3.120.401477
 # Available at https://gsajournals.figshare.com/articles/dataset/Supplemental_Material_for_Hartanto_et_al_2020/12844358
 
-crosstype: magic19
+crosstype: RIL
 geno: genotype_Harm_arabid.csv
 pheno:
     - phenotype_im_Harm_arabid.csv 
