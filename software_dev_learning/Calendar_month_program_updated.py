@@ -110,7 +110,7 @@ while not terminate:
         print('\n', ' ' + month_name, year, '\n')
         
         for value in week_name:
-            #blank = ' ' 
+            blank = ' ' 
             values = format(blank, '2')
             #print(values + value, end='')
             print(values + value, end='')
