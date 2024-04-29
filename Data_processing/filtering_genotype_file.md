@@ -1,4 +1,4 @@
-## FILTERING THE RECUNDANT VARIANTS FROM THE GENOTYPE DATA 
+## FILTERING THE REDUNDANT VARIANTS FROM THE GENOTYPE DATA 
 ### The following contains programming scripts involved in processing medaka fish genotype files to remove redundant variants 
 ### The steps involved are as follows: 
 #### 01 Filtering and generating genotype data from vcf files 
