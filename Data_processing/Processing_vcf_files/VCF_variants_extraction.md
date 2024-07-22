@@ -19,7 +19,7 @@ bcftools view -i 'AF>0.05' file.vcf -o filtered_file.vcf
 bcftools query -l filtered_file.vcf | tr '\n' '\t' > sample_headers.txt  
 
 # add the field headers to a new file 
-echo -e 'CHROM\tPOS\tREF" > fields.txt  
+echo -e "CHROM\tPOS\tREF" > fields.txt  
 echo -e "\n" >> fields.txt
 
 # concatinate the field and sample headers 
