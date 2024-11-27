@@ -167,6 +167,27 @@ pheno_df_T.to_csv('Snoek_Celegans_Av-phenotypes_updated01.tsv', index=None, head
 
 ```
 
+### 04 Processing Experimental Phenotypes Descriptions 
+- This category of files contain description on the experimental phenotypes used in the study 
+- Before generating the final descriptive file, it's important to consider the following; 
+ - Necessary columns needed for the final descriptive file. In this case; 
+
+   ```python 
+    cols = ['Pubmed ID','Pre Publication Description','Post Publication Description','Original Description','Pre Publication Abbreviation','Post Publication Abbreviation','Lab Code','Submitter','Owner','Authorized Users','Authors','Title','Abstract','Journal','Volume','Pages','Month','Year','Units']
+
+   ```
+  - The availability of files/columns that fit the needed column structure above, and how to get them especially if they are found from different sources. 
+  - This step is highly subjective, therefore it is important to consider the column names needed, as well as example files from gn2, or gn2 experts as guidance to make sure one is successful in generating the files. 
+  - For now, this part is still under development, until we manage to clearly describe every bit of the columns necessary for this part.  
+
+### 05 Strains and StrainXref 
+- `TODO` 
+
+
+
+
+
+
 
 
 
