@@ -1,22 +1,22 @@
 ## C elegans Data Processing and Entry Manual 
 
-### This document contains many of the basic steps and hacks on how to process Celegans datasets, and prepare them in the format that is fit to be uploaded into the GeneNetwork2(GN2) uction server. 
+### This document contains many of the basic steps and hacks on how to process Celegans datasets, and prepare them in the format that is fit to be uploaded into the GeneNetwork2(GN2) production server.  
 
-### Ideally, GN2 expects the followin files to be uploaded, depending on the nature of how they were generated. The files include; 
+### In general, the following are file types GeneNetwork expects;  
 
 01. Genotype file 
-  - Raw file: Usually in vcf format or .geno 
-  - Processed file: in *.geno and *BIMBAM.txt format 
+  - Raw file: Usually in `Variant Call Format (VCF)` file format, also could be customary to the data provider  
+  - Processed file: in `*.geno and *BIMBAM.txt` format 
 
-02 Phenotype files 
-  - Contain experimental phenotypes representing continuous values 
+02. Classical Phenotype file 
+  - Contain experimental phenotypes
+  - Usually containing measurements on factors like; blood pressure, weight, height, growth rates, etc.  
 
-03 Log2/Expression files 
+03. Log2/Expression files (Non classical phenotypes) 
   - Contain log2 normalized gene expression values 
-  - classical phenotypic measurements other than expression values 
 
-04 Annotation files 
-  - Contain descriptive information about the rest of the values in files mentioned above. 
+04 Annotation/Description files  
+  - Contain descriptive information about the rest of the values in files mentioned above
 
 ### The following are general steps that can be used to process the files mentioned above to give out desired outputs for GN2 production server 
 
