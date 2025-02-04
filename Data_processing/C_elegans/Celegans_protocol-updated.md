@@ -27,19 +27,35 @@
     - `\*_map.txt`
      - A simple matrix with individual names as column headers and first column containing marker ids
      - An example file: [Snoek_map.txt](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/example_files/Snoek_map.txt){:target="_blank"}
-    
     - `\*_marker.txt`
-
      - 3 columns of interest; 
        - column 01 to have marker ids 
        - column 02 to have chromosomes 
        - column 03 to have position values
-
      - An example file: [Snoek_marker.txt](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/example_files/Snoek_marker.txt){:target="_blank"}
 
 - Before running the script below, make sure your input files adhere to the formatting explained above, with corresponding examples for each as per the links provided 
 
+- NB; the `*_marker.txt` file usually has disarranged columns. Check and compare with the example provided above. If not in the expected order, you can use excel to create a new sheet with the correct format, then use the following script to convert it to the txt format as follows; 
 
+```python 
+#!/usr/bin/env python3 
+
+## import packages 
+import pandas as pd
+
+## load in the file 
+marker_df = pd.read_excel("./your_markerfile.xlsx", sheet_name="your_sheet_name")
+
+## save the file in txt format 
+marker_df.to_csv("./your_processed_markerfile.txt", header = True, index = None, sep="\t") 
+
+```
+- N.B; make sure `openpyxl` and `pandas` are installed in your system. 
+    - you can use `pip install xyz` to install them, where `xyz` represents the package(s) to be installed 
+
+- Then you can run the following script to process the genotype file for GN2 
+ 
 ```python 
 
 ## import required python libraries 
