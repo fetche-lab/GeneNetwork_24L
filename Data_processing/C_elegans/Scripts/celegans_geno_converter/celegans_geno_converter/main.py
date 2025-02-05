@@ -1,5 +1,5 @@
 import argparse 
-from Celegans_geno_converter.converter import convert_genotype_files 
+from celegans_geno_converter.converter import convert_genotype_files 
 
 def main():
     parser = argparse.ArgumentParser(description="Convert genotype and marker files for Celegans datasets into GEMMA-compatible format.")
