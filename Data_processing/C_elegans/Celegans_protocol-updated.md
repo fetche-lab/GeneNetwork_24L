@@ -57,47 +57,76 @@ marker_df.to_csv("./your_processed_markerfile.txt", header = True, index = None,
 - Then you can run the following script to process the genotype file for GN2 
  
 ```python 
-
-## import required python libraries 
-import os 
+#!/usr/bin/env python3
+#
+# import required modules 
+import argparse
 import pandas as pd 
 
-## load in the file(s) into a dataframe 
-geno_df = pd.read_table('./file_map.txt')
-marker_df = pd.read_table('./file_marker.txt')
+def convert_geno_files(geno_file, marker_file, output_file):
+    """
+    Converts genotype and marker files into GEMMA-compatible format. 
 
-## check for unique values 
-unique_values = []
-for values in geno_df.columns[1:]:
-    unique_values.append(geno_df[values].unique())
+    Parameters:
+    - geno_file (str): Path to the genotype file (e.g., file_map.txt) 
+    - marker_file (str): Path to the marker file (e.g., file_marker.txt) 
+    - output_file (str): Path to save the processed output file. 
+    
+    """
+    # load in geno_file and marker_file 
+    geno_df = pd.read_table(geno_file)
+    marker_df = pd.read_table(marker_file)
 
-#print(unique_values) ## 1, -1 are the only unique values 
+    # Encode values in geno_file into gn2/gemmma-compatible format 
+    for values in geno_df.columns: 
+        geno_df[values].replace({-1:'A', 1:'B', 0.5:'H'}, inplace=True)
 
-## Encode the values into the gemma gn2 accepted format 
-### -1 for A (females?) and 1 for B (males?)
-for values in geno_df.columns:
-    geno_df[values].replace({-1:'A', 1:'B', 0.5:'H'}, inplace=True)
+    # Fill empty cells in geno_file with `NA` string 
+    geno_df.fillna('NA', inplace=True)
 
-## fill null values with NA 
-geno_df.fillna('NA', inplace=True)
+    # Create and modify columns (chr, locus, cM, Mb) from the marker dataframe 
+    # Add cM and Mb columns to marker_df 
+    marker_df['Mb'] = marker_df.iloc[:, 2] / 10**6
+    marker_df['cM'] = marker_df.iloc[:, 2] / 10**6 
 
-## add columns {chr, locus, cM, Mb} from the marker dataframe 
-### calculate the cM and Mb 
-marker_df['Mb'] = marker_df['Pos_WS258']/10**6
-marker_df['cM'] = marker_df['Pos_WS258']/10**6 
+    # Rename and rearrange the dataframe columns 
+    # Renaming columns by index
+    marker_df.columns.values[0] = 'Locus'  # Rename the first column (name -> Locus)
+    marker_df.columns.values[1] = 'Chr'   # Rename the second column (Chromosome -> Chr)
 
-### add the columns to the genotype dataframe 
-marker_df.rename(columns={'Chromosome':'Chr', 'name':'Locus'}, inplace=True) 
-marker_df.drop('Pos_WS258', axis=1, inplace=True)
-marker_df = marker_df[['Chr', 'Locus', 'cM', 'Mb']] #rearrange the columns 
-geno_df1 = geno_df.reset_index() #convert rownames to column index
-geno_df1.drop('index', axis=1, inplace=True) #drop the index column
-merged_df = pd.concat([marker_df, geno_df1], axis=1) #add cols in marker df into genotype df 
+    # Dropping the column by index
+    marker_df.drop(marker_df.columns[2], axis=1, inplace=True)  # Drop the 3rd column (Pos_WS258)
 
-## save the dataframe into a file 
-merged_df.to_csv('./processed/C_elegans-Genotypes.tsv', index = None, header = True, sep='\t')
+    # Reordering columns using indexing
+    marker_df = marker_df[[marker_df.columns[1], marker_df.columns[0], 'cM', 'Mb']]  
+
+    # Merge marker dataframe with genotype dataframe
+    geno_df1 = geno_df.reset_index(drop=True)
+    merged_df = pd.concat([marker_df, geno_df1], axis=1)
+
+    # Save the output 
+    merged_df.to_csv(output_file, index=False, header=True, sep='\t')
+
+    # Exit message 
+    print(f"Processing complete: File saved at: {output_file}")
+def main(): 
+    parser = argparse.ArgumentParser(description="Convert genotype data to GN2/GEMMA-compatible format")
+    parser.add_argument("geno_file", help="Path to the genotype file.")
+    parser.add_argument("marker_file", help="Path to the marker file.")
+    parser.add_argument("output_file", help="Path to the processed output file.")
+
+    args = parser.parse_args() 
+    convert_geno_files(args.geno_file, args.marker_file, args.output_file)
+
+if __name__ == "__main__":
+    main() 
 
 ```
+- NB; 
+  - The script above assumes the genotype values in the raw file to be (-1, 1, 0.5)
+
+- HOW TO USE IT: 
+  - Download the script from this link: [celegans_geno_processor]()
 
 ### 02 Processing classical phenotypes 
 
