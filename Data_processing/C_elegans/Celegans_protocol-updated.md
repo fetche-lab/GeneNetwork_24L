@@ -126,7 +126,23 @@ if __name__ == "__main__":
   - The script above assumes the genotype values in the raw file to be (-1, 1, 0.5)
 
 - HOW TO USE IT: 
-  - Download the script from this link: [celegans_geno_processor]()
+  01. Download the script from this link: [celegans_geno_processor](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/Scripts/Celegans_genotype_processor.py)
+  ```sh 
+  git clone "paste here the link to the script above and run" 
+  ```
+  02. To run the script, either: 
+     - use python directly;
+     ```sh 
+     python3 Celegans_geno_processor.py geno_file marker_file output_file 
+     ```
+     - make it executable, then run it 
+     ```sh
+     #make it executable 
+     chmod +x Celegans_geno_processor.py
+
+     #run the script  
+     ./Celegans_geno_processor.py geno_file marker_file output_file
+     ``` 
 
 ### 02 Processing classical phenotypes 
 
