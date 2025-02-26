@@ -37,7 +37,7 @@
 
 - Before running the script below, make sure your input files adhere to the formatting explained above, with corresponding examples for each as per the links provided 
 
-- NB; the `*_marker.txt` file usually has disarranged columns. Check and compare with the example provided above. If not in the expected order, you can use excel to create a new sheet with the correct format, then use the following script to convert it to the txt format as follows; 
+- NB; the `*_marker.txt` file usually has disarranged columns ([see example]()). Check and compare with the example provided above. If not in the expected order, you can use excel to create a new sheet with the correct format, then use the following script to convert it to the txt format as follows; 
 
 ```python 
 #!/usr/bin/env python3 
@@ -88,6 +88,27 @@ if __name__ == "__main__":
     - you can use `pip install xyz` to install them, where `xyz` represents the package(s) to be installed 
 
 - your output file should have a `.txt` extension 
+
+- HOW TO USE IT: 
+  01. Download the script from this link: [marker_cols](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/Scripts/marker_cols.py)
+  ```sh 
+  git clone "paste here the link to the script above and run" 
+  ```
+  02. To run the script, either: 
+     - use python directly;
+     ```sh 
+     python3 marker_cols.py marker_file sheet_name output_file
+     ```
+     - make it executable, then run it 
+     ```sh
+     #make it executable 
+     chmod +x marker_cols.py
+
+     #run the script  
+     ./marker_cols.py marker_file sheet_name output_file
+
+     ``` 
+  - Here's an example of already processed marker file: [marker_file](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/example_files/processed/Snoek_2019_markerUpdated.txt)
 
 - Then you can run the following script to process the genotype file for GN2 
  
