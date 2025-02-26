@@ -1,6 +1,6 @@
-## C elegans Data Processing and Entry Manual 
+## Caenorhabditis elegans (*C.elegans*) Data Processing and Entry Manual 
 
-### This document contains many of the basic steps and hacks on how to process Celegans datasets, and prepare them in the format that is fit to be uploaded into the GeneNetwork2(GN2) production server.  
+### This document contains many of the basic steps and hacks on how to process C.elegans datasets, and prepare them in the format that is fit to be uploaded into GeneNetwork.  
 
 ### In general, the following are file types GeneNetwork expects;  
 
@@ -14,6 +14,7 @@
 
 03. Log2/Expression files (Non classical phenotypes) 
   - Contain log2 normalized gene expression values 
+  - (Note yet applicable in the C.elegans case)
 
 04. Annotation/Description files  
   - Contain descriptive information about the rest of the values in files mentioned above
@@ -24,10 +25,10 @@
 - The script to process genotypes is written in Python  
 - What is expected on the genotype input file(s); 
   - 2 files from which, genotype information is extracted 
-    - `\*_map.txt`
+    - `*_map.txt`
      - A simple matrix with individual names as column headers and first column containing marker ids
      - An example file: [Snoek_map.txt](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/example_files/Snoek_map.txt){:target="_blank"}
-    - `\*_marker.txt`
+    - `*_marker.txt`
      - 3 columns of interest; 
        - column 01 to have marker ids 
        - column 02 to have chromosomes 
@@ -42,17 +43,51 @@
 #!/usr/bin/env python3 
 
 ## import packages 
+import argparse
 import pandas as pd
 
-## load in the file 
-marker_df = pd.read_excel("./your_markerfile.xlsx", sheet_name="your_sheet_name")
+## the program 
+def marker_cols_rearrange(marker_file, sheet_name, output_file):
+    """ 
+    Checks and rearrange the columns in marker file into a good order 
+    
+    Parameters: 
+    - Marker_file(str): Path to the marker file (e.g marker_file.xlsx)
+    - sheet_name(str): The name of your sheet in excel (e.g sheet01) 
+    - Output_file(str): Path to save the processed output file  
+    """
+    ## load in the file 
+    marker_df = pd.read_excel(marker_file, sheet_name=sheet_name)
 
-## save the file in txt format 
-marker_df.to_csv("./your_processed_markerfile.txt", header = True, index = None, sep="\t") 
+    ## drop the first column 
+    del marker_df["name"]
+
+    ## rearrange the columns 
+    marker_df1 = marker_df.set_axis(['name', 'Chromosome', 'Pos_WS258'], axis=1)
+
+    ## save the file in txt format 
+    marker_df1.to_csv(output_file, header = True, index = None, sep="\t") 
+
+    # Exit message 
+    print(f"Processing complete: File saved at: {output_file}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Rearranges columns in marker file in the right order")
+    parser.add_argument("marker_file", help="Path to the marker file {it should be in Excel format}")
+    parser.add_argument("sheet_name", help="Name of the sheet with your data in excel")
+    parser.add_argument("output_file", help="Path to save your output file")
+
+    args = parser.parse_args()
+    marker_cols_rearrange(args.marker_file, args.sheet_name, args.output_file)
+
+if __name__ == "__main__":
+    main()
 
 ```
 - N.B; make sure `openpyxl` and `pandas` are installed in your system. 
     - you can use `pip install xyz` to install them, where `xyz` represents the package(s) to be installed 
+
+- your output file should have a `.txt` extension 
 
 - Then you can run the following script to process the genotype file for GN2 
  
