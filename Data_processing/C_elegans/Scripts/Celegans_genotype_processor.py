@@ -6,7 +6,7 @@ import pandas as pd
 
 def convert_geno_files(geno_file, marker_file, output_file):
     """
-    Converts genotype and marker files into GEMMA-compatible format. 
+    Converts phenotype and marker files into GEMMA-compatible format. 
 
     Parameters:
     - geno_file (str): Path to the genotype file (e.g., file_map.txt) 
@@ -51,7 +51,10 @@ def convert_geno_files(geno_file, marker_file, output_file):
     # Exit message 
     print(f"Processing complete: File saved at: {output_file}")
 def main(): 
-    parser = argparse.ArgumentParser(description="Convert genotype data to GN2/GEMMA-compatible format")
+    parser = argparse.ArgumentParser(
+        prog="Celegans-geno-processor",
+        description="Convert genotype data to GN2/GEMMA-compatible format"
+        )
     parser.add_argument("geno_file", help="Path to the genotype file.")
     parser.add_argument("marker_file", help="Path to the marker file.")
     parser.add_argument("output_file", help="Path to the processed output file.")

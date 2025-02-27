@@ -37,7 +37,7 @@
 
 - Before running the script below, make sure your input files adhere to the formatting explained above, with corresponding examples for each as per the links provided 
 
-- NB; the `*_marker.txt` file usually has disarranged columns ([see example]()). Check and compare with the example provided above. If not in the expected order, you can use excel to create a new sheet with the correct format, then use the following script to convert it to the txt format as follows; 
+- NB; the `*_marker.txt` file usually has disarranged columns ([see example](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/C_elegans/example_files/Snoek_2019_marker01.xlsx)). Check and compare with the example provided above. If not in the expected order, you can use excel to create a new sheet with the correct format, then use the following script to convert it to the txt format as follows; 
 
 ```python 
 #!/usr/bin/env python3 
@@ -72,7 +72,10 @@ def marker_cols_rearrange(marker_file, sheet_name, output_file):
     print(f"Processing complete: File saved at: {output_file}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Rearranges columns in marker file in the right order")
+    parser = argparse.ArgumentParser(
+      prog="Marker-cols",
+      description="Rearranges columns in marker file in the right order"
+      )
     parser.add_argument("marker_file", help="Path to the marker file {it should be in Excel format}")
     parser.add_argument("sheet_name", help="Name of the sheet with your data in excel")
     parser.add_argument("output_file", help="Path to save your output file")
@@ -166,7 +169,9 @@ def convert_geno_files(geno_file, marker_file, output_file):
     # Exit message 
     print(f"Processing complete: File saved at: {output_file}")
 def main(): 
-    parser = argparse.ArgumentParser(description="Convert genotype data to GN2/GEMMA-compatible format")
+    parser = argparse.ArgumentParser(
+      prog="Celegans-geno-processor",
+      description="Convert genotype data to GN2/GEMMA-compatible format")
     parser.add_argument("geno_file", help="Path to the genotype file.")
     parser.add_argument("marker_file", help="Path to the marker file.")
     parser.add_argument("output_file", help="Path to the processed output file.")
@@ -200,104 +205,106 @@ if __name__ == "__main__":
      ./Celegans_geno_processor.py geno_file marker_file output_file
      ``` 
 
-### 02 Processing classical phenotypes 
-
-- In this case, we will use python/pandas to process the classical phenotype file 
-
-```python 
-## import the necessary libraries 
-import pandas as pd 
-import numpy as np 
-
-## load in the phenotype file into a dataframe 
-celegans_pheno_df = pd.read_table('Snoek_2019_data.txt')
-
-## inspect the file {use .head(), .columns, .shape}
-
-## convert the index section into a column to be used as the rownames 
-celegans_pheno_df.reset_index(inplace=True) #reset the index 
-celegans_pheno_df.rename(columns={'index':'IDs'}, inplace=True) #rename the index header name 
-celegans_pheno_df['IDs'].head() #inspect the new column 
-
-## Extract the desirable part of the rownames 
-celegans_pheno_df['Ids'] = celegans_pheno_df['IDs'].str.split(';').str[1] #take the desirable part of the col values, create a new col 
-celegans_pheno_df.drop('IDs', axis=1, inplace=True) #drop the original rownames
-celegans_pheno_df.insert(0, 'IDs', celegans_pheno_df['Ids']) #put the new col as the first col/rownames
-celegans_pheno_df.drop('Ids', axis = 1, inplace=True) #drop the replica of the rownames at the end of the df
-
-##Inspect your changes {use .head(), .columns, .shape}
-
-## Perform log2 transformation on the df 
-celegans_pheno_df1 = celegans_pheno_df.apply(pd.to_numeric, errors='coerce')#this helps prevent errors due to non numeric values vs log2 
-log2_celegans_df = celegans_pheno_df1.apply(np.log2)#the actual log2 transformation 
-log2_celegans_df.insert(0, 'Ids', celegans_pheno_df['IDs'])#insert the original IDs column to replace the transformed one (which has NaN)
-log2_celegans_df.drop('IDs', axis=1, inplace=True)#drop the transformed IDs column 
-
-## round the values to 6 decimal places 
-log2_celegans_df1 = log2_celegans_df.round(6)
-
-## fill the NaN with NA 
-log2_celegans_df1.fillna('NA', inplace=True)
-
-## Save your dataframe into a file 
-log2_celegans_df1.to_csv('C_elegans_Snoek_log2_data01.tsv', index=None, header=True, sep='\t', float_format='%.6f')
-
-```
-### 03 Processing Experimental Phenotypes 
+### 02 Processing Experimental Phenotypes 
 - On this part, we expect to have two files. One for the phenotypes and one for the corresponding descriptions
 
 - processing the experimental phenotypes 
+  - The could be provided in the supplementary files (as in Snoek), but sometimes, it is provided as a stand alone file 
+  - At least the file should look like this: [phenotype_file]()
 
 ```python 
+#!/usr/bin/env python3 
+
 ## import the required libraries 
+import argparse
 import pandas as pd 
 
-## load in the excel sheet with the experimental phenotypes 
-phenotype_df = pd.read_excel('./Supplementary_materials/7843112/C-elegans_sup.xlsx', sheet_name='SupTab5')
 
-## inspect the file {use .head(), .columns, .shape}
+def convert_pheno_files(pheno_file, sheet_name, output_file):
+    """
+    Process phenotype data into GN required formatting. 
 
-## drop the columns not needed 
-cols_to_drop = ['Seq_order', 'Ril_ID', 'Seqence_ID', 'rils']
-phenotype_df.drop(columns=cols_to_drop, axis=1, inplace=True)
+    Parameters:
+    - pheno_file (str): Path to the genotype file (e.g., file_map.txt) 
+    - sheet_name (str): Path to the marker file (e.g., file_marker.txt) 
+    - output_file (str): Path to save the processed output file. 
+    
+    """
 
-## add the SE and N cols after each of the available columns, then add string x as the values for both added cols 
+    if pheno_file.split(".")[1] == "xlsx":
+        ## load in the excel sheet with the experimental phenotypes 
+        phenotype_df = pd.read_excel(pheno_file, sheet_name=sheet_name)
 
-#Create a new DataFrame with the desired structure
-new_cols = [] 
+        ## drop the columns not needed 
+        cols_to_drop = ['Seq_order', 'Ril_ID', 'Seqence_ID', 'rils']
+        phenotype_df.drop(columns=cols_to_drop, axis=1, inplace=True)
 
-for cols in phenotype_df.columns: 
-    new_cols.append(cols)
-    new_cols.append(f"SE")
-    new_cols.append(f"N") 
+        ## add the SE and N cols after each of the available columns, then add string x as the values for both added cols 
+        #Create a new DataFrame with the desired structure
+        new_cols = [] 
 
-#Create a new DataFrame with the same number of rows and fill SE and N with 'x'
-phenotype01_df = pd.DataFrame(columns=new_cols)
+        for cols in phenotype_df.columns: 
+            new_cols.append(cols)
+            new_cols.append(f"SE")
+            new_cols.append(f"N") 
 
-for col in phenotype_df.columns:
+        #Create a new DataFrame with the same number of rows and fill SE and N with 'x'
+        phenotype01_df = pd.DataFrame(columns=new_cols)
 
-    # Assign values from original DataFrame
-    phenotype01_df[col] = phenotype_df[col]
+        for col in phenotype_df.columns:
 
-    # Assign 'x' to SE and N columns
-    phenotype01_df[f'SE'] = 'x'
-    phenotype01_df[f'N'] = 'x'
+            # Assign values from original DataFrame
+            phenotype01_df[col] = phenotype_df[col]
 
-## test the new df and inspect it 
-phenotype01_df.columns
-phenotype01_df.head() 
+            # Assign 'x' to SE and N columns
+            phenotype01_df[f'SE'] = 'x'
+            phenotype01_df[f'N'] = 'x'
 
-## Transpose the df and maintain the indexing 
-pheno_df_T = phenotype01_df.set_index('WN_ID').T 
-pheno_df_T = pheno_df_T.reset_index()
-pheno_df_T.rename(columns={'index':'Strain'}, inplace=True)
+        ## Transpose the df and maintain the indexing 
+        pheno_df_T = phenotype01_df.set_index('WN_ID').T 
+        pheno_df_T = pheno_df_T.reset_index()
+        pheno_df_T.rename(columns={'index':'Strain'}, inplace=True)
 
-## drop the first two rows 'SE' and 'N' as they are not needed for the col headers
-pheno_df_T = pheno_df_T.drop(index=[0,1])
-pheno_df_T.reset_index(drop=True, inplace=True)
+        ## drop the first two rows 'SE' and 'N' as they are not needed for the col headers
+        pheno_df_T = pheno_df_T.drop(index=[0,1])
+        pheno_df_T.reset_index(drop=True, inplace=True)
 
-## Save your file 
-pheno_df_T.to_csv('Snoek_Celegans_Av-phenotypes_updated01.tsv', index=None, header=True, sep='\t')
+    else: 
+        ## load in the excel sheet with the experimental phenotypes 
+        phenotype_df = pd.read_table(pheno_file)
+
+        ## rearrange the column headers 
+        phenotype_df.reset_index(inplace=True)
+        phenotype_df.rename(columns={"index":"WN_ID"}, inplace=True)
+
+        ## restructure rownames to be short and informative 
+        ###TODO 
+
+        ## Insert N and SE rows under each of the traits for this file 
+        ### TODO
+
+    ## inspect the file {use .head(), .columns, .shape}
+
+    ## Save your file 
+    pheno_df_T.to_csv(output_file, index=None, header=True, sep='\t')
+
+    # Exit message 
+    print(f"Processing complete: File saved at: {output_file}")
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="Celegans-Phenotype-Processor", 
+        description="Processes Celegans experimental phenotype files into GN format."
+        )
+    parser.add_argument("pheno_file", help="Path to the phenotype file (excel or txt)")
+    parser.add_argument("--sheet_name", help="Name of the sheet with your data in excel (use this if you provide an excel input file)")
+    parser.add_argument("output_file", help="Path to save your output file")
+
+    args = parser.parse_args()
+    marker_cols_rearrange(args.pheno_file, args.sheet_name, args.output_file)
+
+if __name__ == "__main__":
+    main()
 
 ```
 

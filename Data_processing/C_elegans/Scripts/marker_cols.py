@@ -30,7 +30,9 @@ def marker_cols_rearrange(marker_file, sheet_name, output_file):
     print(f"Processing complete: File saved at: {output_file}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Rearranges columns in marker file in the right order")
+    parser = argparse.ArgumentParser(
+        prog="Marker-cols",
+        description="Rearranges columns in marker file in the right order")
     parser.add_argument("marker_file", help="Path to the marker file {it should be in Excel format}")
     parser.add_argument("sheet_name", help="Name of the sheet with your data in excel")
     parser.add_argument("output_file", help="Path to save your output file")
