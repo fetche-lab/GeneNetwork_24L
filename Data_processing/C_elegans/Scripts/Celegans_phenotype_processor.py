@@ -6,7 +6,7 @@ import pandas as pd
 
 def convert_pheno_files(pheno_file, sheet_name, output_file):
     """
-    Process phenotype data into GN required formatting. 
+    Process phenotype data into GeneNetwork (GN) required formatting. 
 
     Parameters:
     - pheno_file (str): Path to the genotype file (e.g., file_map.txt) 
@@ -53,6 +53,11 @@ def convert_pheno_files(pheno_file, sheet_name, output_file):
         pheno_df_T = pheno_df_T.drop(index=[0,1])
         pheno_df_T.reset_index(drop=True, inplace=True)
 
+        ## round the values to at least 6 decimal places 
+        pheno_df_T = pheno_df_T.map(lambda x: round(x, 6) if isinstance(x,(int, float))else x)
+
+        ## Save your file 
+        pheno_df_T.to_csv(output_file, index=None, header=True, sep='\t', float_format="%.6f")
     else: 
         ## load in the excel sheet with the experimental phenotypes 
         phenotype_df = pd.read_table(pheno_file)
@@ -62,15 +67,27 @@ def convert_pheno_files(pheno_file, sheet_name, output_file):
         phenotype_df.rename(columns={"index":"WN_ID"}, inplace=True)
 
         ## restructure rownames to be short and informative 
-        ###TODO 
+        phenotype_df['WN_IDt'] = phenotype_df['WN_ID'].str.split(';').apply(lambda x: f"{x[0]}_{x[1]}")
+        phenotype_df.drop('WN_ID', axis=1, inplace=True)
+        phenotype_df.insert(0, 'WN_ID', phenotype_df['WN_IDt'])
+        phenotype_df.drop('WN_IDt', axis=1, inplace=True)
 
         ## Insert N and SE rows under each of the traits for this file 
-        ### TODO
+        ###Create new dataframe with rows to be inserted 
+        new_rows = pd.DataFrame({
+            phenotype_df.columns[0]: ['SE', 'N'],
+            **{col: ['x', 'x'] for col in phenotype_df.columns[1:]}
+        })
 
-    ## inspect the file {use .head(), .columns, .shape}
+        ###combine the original dataframe with the new rows 
+        pheno_df2 = pd.DataFrame()
+        for i in range(len(phenotype_df)):
+            pheno_df2 = pd.concat([pheno_df2, phenotype_df.iloc[[i]], new_rows])
 
-    ## Save your file 
-    pheno_df_T.to_csv(output_file, index=None, header=True, sep='\t')
+        ## round the values to at least 6 decimal places 
+        pheno_df2 = pheno_df2.map(lambda x: round(x, 6) if isinstance(x,(int, float))else x)
+        ## Save your file 
+        pheno_df2.to_csv(output_file, index=None, header=True, sep='\t', float_format="%.6f")
 
     # Exit message 
     print(f"Processing complete: File saved at: {output_file}")
@@ -85,7 +102,7 @@ def main():
     parser.add_argument("output_file", help="Path to save your output file")
 
     args = parser.parse_args()
-    marker_cols_rearrange(args.pheno_file, args.sheet_name, args.output_file)
+    convert_pheno_files(args.pheno_file, args.sheet_name, args.output_file)
 
 if __name__ == "__main__":
     main()
