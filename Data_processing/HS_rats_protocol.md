@@ -1,6 +1,19 @@
-## The following contains scripts used to process the HS rats log2 and phenotype files 
+# Heterogenous Stock (HS) Rats Protocol 
+The following contains scripts used to process datasets on HS rats
+These include: 
+ - Expression data 
+ - Experimental phenotypes 
+ - Genotype data 
+ - Phenotype Descriptions 
 
-## 01 Log2 dataset 
+## 01 Processing genotypes 
+- From the downloads, HS genotype files are in VCF format. So, there is a separate script to process vcf files that is also used for HS rats. Yet, there is still a need to optimize and automate this for future HS rats data. 
+
+- Check the following link, for the genotype processing; [genotyping_vcf](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/genotype_smoothing.md)
+
+ 
+## 02 Log2 dataset 
+*(more information to be added here after several tests with a variety of data)*
 
 ```python 
 # import required library/libraries 
@@ -28,8 +41,11 @@ file_df_rounded.to_excel('processed/file.rn7.expr.log2.xlsx', index=False) #xlsx
 
 ```
 
-## 02 Experimental phenotypes 
+## 03 Experimental phenotypes 
+*(more information to be added here after several tests with a variety of data)*
+
 - The experimental dataset in this comes in xlsx sheets. The sheets of interest will be selected and processed
+
 - Python will be used to process the files 
 
 ```python 
@@ -89,7 +105,9 @@ pheno_df_T.to_csv('./Adipose_Liver.rn7.exp-phenotypes-updated.tsv', index=None, 
 
 ```
 
-## 03 Experimental phenotype descriptions 
+## 04 Experimental phenotype descriptions 
+*(more information to be added here after several tests with a variety of data)*
+
 - This part contains the information describing the experimental phenotypes 
 
 - load the summary file, process it to get the description information 
@@ -122,13 +140,5 @@ desc_updated_df.to_csv('./Adipose_Liver.rn7.exp-phenotypes-descriptions.tsv', in
 
 ```
 
-## 04 Processing genotypes 
-- For processing genotypes especially in vcf format, check the following link [genotyping_vcf](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/genotype_smoothing.md)
-
-
 ## Processing the strain and strainXref 
-```bash 
-## TODO 
-```
-
-
+*(This is yet to be fully automated as it highly depends on the backend GN team to decide how the strain and the strainXref files should be structured and entered into the database)*
