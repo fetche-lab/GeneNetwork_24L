@@ -80,12 +80,20 @@ genotype_df["Locus"] = 'rsk' + genotype_df['ID'].astype(str).str.zfill(5) #adds 
 ### add metadata before saving to file 
 ## define metadata 
 metadata = [
-    '@name:F2-KILIFISH-UTHS',
+    '## LIA stands for "Leiniz Institute of Aging" from which this data was generated', 
+    '## `ref` refers to the homozygous reference allele',
+    '## `alt` refers to the homozygous alternative allele',
+    '## `het` refers to the heterozygous alleles, containing one allele from ref and the other from alt',
+    '## `unk` represents all unknown genotypes', 
+    '## the crossing used in this data is of second generation from the parent generation',
+    ' ', 
+    '@name:F2-KILIFISH-LIA',
     '@type:F2 cross',
     '@ref:A',
     '@alt:B',
     '@het:H',
-    '@unk:U'
+    '@unk:U', 
+    ' ' 
 ]
 
 # Save to text file with metadata followed by DataFrame
