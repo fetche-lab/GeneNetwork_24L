@@ -1,7 +1,7 @@
-### Kilifish Project 
+## Kilifish Project 
 The following contains information on all steps and actions taken to process kilifish datasets into the required GeneNetwork format before the uploading process 
 
-#### 01 Genotype file 
+### 01 Genotype file 
 More information on regarding the nature and structure of the genotype file; 
 
 - The “Geno” list, contains the genotype of each (506) F2 fish. It is comprised of a matched array which contains a SNP marker location (roughly one marker each 100kb) which corresponds to the reference genome: MPIA_NFZ_2.0. This reference genome had been made available to you under the file name: `annotation.gtf`
@@ -87,7 +87,7 @@ metadata = [
     '## `unk` represents all unknown genotypes', 
     '## the crossing used in this data is of second generation from the parent generation',
     ' ', 
-    '@name:F2-KILIFISH-LIA',
+    '@name:F2-KILIFISH-UTHS',
     '@type:F2 cross',
     '@ref:A',
     '@alt:B',
@@ -108,5 +108,110 @@ with open(output_file, 'w') as f:
 
 ```
 
-#### 02 Phenotype file(s)
-`TODO....,`  
+### 02 Phenotype file(s)
+#### a) CaseAttributes 
+> CaseAttributes provide context useful in data comparison during mapping. 
+
+> This dataset had `sex`, and `Age` range in days as case attributes 
+
+> The processing was as follows; 
+```python 
+## import pandas 
+import pandas as pd 
+
+## load in the file with attributes 
+ attr_df = pd.read_csv("./2025-04-08RQTL_mapping_phenotype_master_table_Felix.csv", low_memory=False)
+
+## inspect the file, then select the columns of interest 
+### filter unwanted rows 
+attr_df = attr_df[attr_df['Generation'] == 'F2'] #selects all rows with F2 as their value in Generation column
+### select cols of interest 
+cols_to_pick = ["ID", "DOB", "DOS", "sex"]
+attr_df = attr_df[cols_to_pick]
+
+## adjust DOB and DOS into time range in days 
+# Convert DOB and DOS columns to datetime format, handling different formats
+attr_df['DOB'] = pd.to_datetime(attr_df['DOB'], format='%d.%m.%y', errors='coerce')
+attr_df['DOS'] = pd.to_datetime(attr_df['DOS'], format='%d.%m.%y', errors='coerce')
+
+# Calculate the difference in days between DOS and DOB
+attr_df['Age(days)'] = (attr_df['DOS'] - attr_df['DOB']).dt.days
+#attr_df['Age(months)'] = ((attr_df['DOS'] - attr_df['DOB']).dt.days / 30.44).round(2)
+
+## drop DOB and DOS
+cols_to_drop = ["DOB", "DOS"]
+attr_df.drop(columns=[cols_to_drop], axis=1, inplace=True)
+
+## save the df into a csv file 
+attr_df.to_csv("./Kilifish_CaseAttributes.csv", index=False)
+
+```
+
+#### b) Experimental phenotypes 
+> These are non expression measurements that are also useful in mapping and association experiments between genotypes and phenotypes 
+
+> The processing is as follows; 
+```python
+
+## import pandas 
+import pandas as pd 
+
+## load in the file with attributes 
+ exp_df = pd.read_csv("./2025-04-08RQTL_mapping_phenotype_master_table_Felix.csv", low_memory=False)
+
+### filter unwanted rows 
+exp_df = exp_df[exp_df['Generation'] == 'F2']
+
+### select wanted columns 
+cols_to_pick = ["ID", "Generation", "DOB", "DOS", "Brain.weight", "sex", "Fish.length.no.tail"]
+exp_df = exp_df[cols_to_pick]
+
+## adjust DOB and DOS into time range in days 
+# Convert DOB and DOS columns to datetime format, handling different formats
+exp_df['DOB'] = pd.to_datetime(exp_df['DOB'], format='%d.%m.%y', errors='coerce')
+exp_df['DOS'] = pd.to_datetime(exp_df['DOS'], format='%d.%m.%y', errors='coerce')
+
+# Calculate the difference in days between DOS and DOB
+exp_df['Age(days)'] = (exp_df['DOS'] - exp_df['DOB']).dt.days
+#exp_df['Age(months)'] = ((exp_df['DOS'] - exp_df['DOB']).dt.days / 30.44).round(2)
+
+## drop DOB and DOS
+cols_to_drop = ["DOB", "DOS"]
+exp_df.drop(columns=[cols_to_drop], axis=1, inplace=True)
+
+## add the SE and N cols after each of the available columns, then add string x as the values for both added cols 
+#Create a new DataFrame with the desired structure
+new_cols = []
+
+for cols in exp_pheno_df.columns: 
+    new_cols.append(cols) 
+    new_cols.append(f"SE") 
+    new_cols.append(f"N")
+
+#Create a new DataFrame with the same number of rows and fill SE and N with 'x'
+exp_pheno_df1 = pd.DataFrame(columns=new_cols)
+
+for cols in exp_pheno_df.columns:
+
+    # Assign values from original DataFrame
+    exp_pheno_df1[cols] = exp_pheno_df[cols] 
+
+    # Assign 'x' to SE and N columns
+    exp_pheno_df1[f"SE"] = 'x' 
+    exp_pheno_df1[f"N"] = 'x'
+
+## Transpose the df and maintain the indexing 
+exp_pheno_df2 = exp_pheno_df1.set_index("ID").T
+exp_pheno_df2 = exp_pheno_df2.reset_index()
+exp_pheno_df2.rename(columns={'index':'Strain'}, inplace = True)ce=True)
+
+## drop the first two rows 'SE' and 'N' as they are not needed for the col headers
+exp_pheno_df2 = exp_pheno_df2.drop(index=[0, 1])
+exp_pheno_df2.reset_index(drop=True, inplace=True)
+
+## save the file 
+exp_pheno_df2.to_csv("../processed/Kilifish_Experimental_Phenotypes.csv", index=False)
+
+```
+
+
