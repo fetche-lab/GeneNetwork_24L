@@ -213,5 +213,76 @@ exp_pheno_df2.reset_index(drop=True, inplace=True)
 exp_pheno_df2.to_csv("../processed/Kilifish_Experimental_Phenotypes.csv", index=False)
 
 ```
+#### c) Expression phenotypes (transcriptomics and proteomics)
 
+> The dataset includes transcriptomics and proteomics datasets 
 
+> Both were generated from samples of either of the Kilifish brain's hemisphere 
+
+> all columns with "XM.." are transcriptomic data
+
+> all columns with "A.." are proteomics data 
+
+> Normalization techniques used: 
+>> Transcriptomics dataset was `rpm (reads per million)` normalized 
+>> Proteomics dataset was `spike-in control` normalized 
+
+> Processing the expression dataset is as follows: 
+```python 
+## import packages 
+import pandas as pd 
+
+## load in data 
+expression_df = pd.read_csv("2025-04-08RQTL_mapping_phenotype_master_table_Felix.csv", low_memory=False) 
+
+## inspect the df 
+### in this case; select all rows with F2 as their generation 
+expression_df = expression_df[expression_df["Generation"] == "F2"]
+
+## drop columns not needed in this process 
+cols_to_drop = ["Generation", "DOB", "DOS", "Brain.weight", "sex", "Fish.length.no.tail"]
+
+expression_df.drop(columns=cols_to_drop, axis=1, inplace=True)
+
+## now extract the transcriptomic data 
+xm_cols = [cols for cols in expression_df.columns if cols.startswith("XM_")]#selects columns starting with "XM_"
+xm_df = expression_df[xm_cols]#creates a new df with the xm columns 
+xm_df.insert(0,"ID", expression_df['ID'])# adds the individual IDs 
+
+## now extract proteomics data 
+proteomics_cols = [cols for cols in expression_df.columns if not cols.startswith("XM_")]# extracts all columns not starting with "XM_" 
+proteomics_df = expression_df[proteomics_cols]#creates new df with proteomics columns 
+
+## standardize to 3 decimal places for both 
+##xm_df
+xm_df.iloc[:, 1:] = xm_df.iloc[:,1:].round(3)
+xm_df.fillna("NA", inplace=True)
+##proteomics_df 
+proteomics_df.iloc[:, 1:] = proteomics_df.iloc[:, 1:].round(3)
+proteomics_df.fillna("NA", inplace=True)
+
+## save the dfs into files (as csv and text)
+xm_df.to_csv("../processed/Kilifish_transcriptomic_data.csv", index=False)
+xm_df.to_csv("../processed/Kilifish_transcriptomic_data.txt", index=False, header=None, sep="\t")
+proteomics_df.to_csv("../processed/Kilifish_proteomic_data.csv", index=False)
+proteomics_df.to_csv("../processed/Kilifish_proteomic_data.txt", index=False, header=None, sep="\t")
+
+```
+
+### 03 Metadata 
+#### a) Experimental Phenotype descriptions 
+
+> This involves decriptive information on the phenotypes selected to be used in this project 
+
+> The process involves updating the column headers reflecting the following information: 
+
+>>`['Pubmed ID', 'Pre Publication Description',
+       'Post Publication Description', 'Original Description',
+       'Pre Publication Abbreviation', 'Post Publication Abbreviation',
+       'Lab Code', 'Submitter', 'Owner', 'Autorized Users', 'Authors', 'Title',
+       'Abstract', 'Journal', 'Volume', 'Pages', 'Month', 'Year', 'Units']`
+
+> A simple excel manipulation is enough to get this done. It is important however, to adhere to the gn2 descriptions guidelines, more information on this link: [GN2_guidelines]("https://info.genenetwork.org/sop/data_submission/")
+
+b) Annotation information??
+`TODO` 
