@@ -87,7 +87,7 @@ metadata = [
     '## `unk` represents all unknown genotypes', 
     '## the crossing used in this data is of second generation from the parent generation',
     ' ', 
-    '@name:F2-KILIFISH-UTHS',
+    '@name:F2-KILIFISH-LIA',
     '@type:F2 cross',
     '@ref:A',
     '@alt:B',
@@ -268,6 +268,7 @@ proteomics_df.to_csv("../processed/Kilifish_proteomic_data.csv", index=False)
 proteomics_df.to_csv("../processed/Kilifish_proteomic_data.txt", index=False, header=None, sep="\t")
 
 ```
+> NB: the strain Ids were updated to include `KF2_` prefix, making them alphanumeric, for consistency in gn2. KF2 refers to ``Kilifish F2 generation` 
 
 ### 03 Metadata 
 #### a) Experimental Phenotype descriptions 
