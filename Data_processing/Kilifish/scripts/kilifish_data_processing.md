@@ -278,7 +278,7 @@ proteomics_df.to_csv("../processed/Kilifish_proteomic_data.txt", index=False, he
 
 >>`['Pubmed ID', 'Pre Publication Description','Post Publication Description', 'Original Description','Pre Publication Abbreviation', 'Post Publication Abbreviation','Lab Code', 'Submitter', 'Owner', 'Autorized Users', 'Authors', 'Title','Abstract', 'Journal', 'Volume', 'Pages', 'Month', 'Year', 'Units']`
 
-> A simple excel manipulation is enough to get this done. It is important however, to adhere to the gn2 descriptions guidelines, more information on this link: [GN2_guidelines]("https://info.genenetwork.org/sop/data_submission/")
+> A simple excel manipulation is enough to get this done. It is important however, to adhere to the gn2 descriptions guidelines, more information on this link: [GN2_guidelines](https://info.genenetwork.org/sop/data_submission/)
 
 b) Annotation information??
 `TODO` 
