@@ -15,8 +15,8 @@ bcftools view -i 'AF>0.05' file.vcf -o filtered_file.vcf
 
 ## Extracting genotype information from the filtered vcf files 
 
-bcftools query -l filtered_file.vcf | tr '\n' ',' | sed 's/,$//' | awk '{print "CHROM,POS,ID," $0}' > sample01_genotypes.csv
-bcftools query -f '%CHROM\t%POS\t%ID[\t%GT]\n' filtered_file.vcf | awk -F'\t' 'BEGIN {OFS=","} {print}' >> sample01_genotypes.csv
+(echo -e "CHROM\tPOS\tID$(bcftools query -l your_file.vcf | awk '{printf "\t%s", $0}')"; \
+ bcftools query -f '%CHROM\t%POS\t%ID[\t%GT]\n' your_file.vcf) > output_with_headers.txt
 ```
 An example of a genotype file would look like this: 
 
