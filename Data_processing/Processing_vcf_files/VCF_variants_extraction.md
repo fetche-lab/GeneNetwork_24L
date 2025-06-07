@@ -15,19 +15,8 @@ bcftools view -i 'AF>0.05' file.vcf -o filtered_file.vcf
 
 ## Extracting genotype information from the filtered vcf files 
 
-# extract sample headers 
-bcftools query -l filtered_file.vcf | tr '\n' '\t' > sample_headers.txt  
-
-# add the field headers to a new file 
-echo -e "CHROM\tPOS\tREF" > fields.txt  
-echo -e "\n" >> fields.txt
-
-# concatinate the field and sample headers 
-cat fields.txt sample_headers.txt > headers.txt
-
-# extract the genotypes from the files 
-bcftools query -f '%CHROM\t%POS\t%REF\t[\t%GT]\n' filtered_file.vcf | cat headers.txt -> filtered_file_genotype.txt 
-
+(echo -e "CHROM\tPOS\tID$(bcftools query -l your_file.vcf | awk '{printf "\t%s", $0}')"; \
+ bcftools query -f '%CHROM\t%POS\t%ID[\t%GT]\n' your_file.vcf) > output_with_headers.txt
 ```
 An example of a genotype file would look like this: 
 
