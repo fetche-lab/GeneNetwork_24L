@@ -1,0 +1,366 @@
+# Genotype smoothing for multiparent outbred species (HS rats) 
+
+The following contains a quick roadmap and important things to note, when dealing with multiparent genotypes. 
+There is still room for improvement on the current state of the art of genotyping, and this is one of the major steps to be taken, that is, the importance of genotype smoothing. 
+Genotyping smoothing, is simply an approach used to separate signal from noise in genotypes, so that one ends up having a clean and accurate set of genotypes for further downstream analyses. 
+
+# More context to genotyping, phasing, imputation, and haplotyping in multiparent species
+ 
+## Improving HS rats genotyping and smoothing 
+
+* Define the rat genome assembly explicitly in metadata to clarify coordinate space and support reproducibility.
+* Perform QC by counting genotype calls per type and per rat—deviations in expected ratios can flag data quality issues.
+* Use pairs of markers to define haplotype blocks more reliably; this improves recombination detection and genotype confidence.
+* Consider the expected recombination density (~2000 events per animal at Gen70) to assess whether marker density is sufficient.
+* Evaluate genotype data quality and sparsity empirically, e.g., by analyzing the detection power for cis-eQTLs and checking for haplotype "runs."
+
+### Genotyping accuracy in HS rats 
+
+* Consider raising the minor allele frequency (MAF) threshold to 10–20%, given the 8 inbred progenitors and expected low haplotype diversity per locus in HS rats.
+* Avoid using markers spaced <1000 bp apart, as drastic genotype shifts over short distances may indicate technical artifacts rather than real recombination.
+* Be cautious with interpreting telomeric regions—they can be harder to genotype reliably and shouldn't be generalized from limited data.
+
+### Haplotype Refinement and Smoothing: Key Takeaways
+
+* Defining proximal/distal SNPs per haplotype block and applying MAF > 20% greatly improved genotype clarity, enabling reliable identification of long haplotype runs.
+* Spurious recombinations (e.g., at Marker 25 and 41) often result from either mispositioned markers or poor-quality SNPs—these should be flagged for exclusion or correction.
+* Recombination smoothing is now the priority: count and analyze per-rat and per-marker recombination flips to identify poor-quality samples (e.g., erratic genotypes like in animal 57241-5) and overly disruptive markers.
+
+### Integrating HS Founders to Improve Genotype Smoothing
+
+* The HS rat population was derived from eight fully inbred progenitor strains, seven of which have been sequenced, enabling precise identification of most haplotype origins.
+* Each HS rat has undergone approximately 1,440 meiotic recombinations over 80 generations, leading to expected haplotype block sizes of ~1.5–2.0 Mb.
+* Genotype files currently reflect both the original founder SNP variants and the new recombination-derived haplotypes—these layers need to be disentangled.
+* Separating founder variants from HS-specific recombinations will reduce mapping noise and enhance power in QTL analyses.
+* Including the 8 founder genotypes (as reference columns) in the current genotype matrix will allow alignment of observed haplotypes with founder origins.
+* Mapping should first use clean HS haplotypes for detection, and then refine with founder SNPs for fine-mapping resolution.
+
+### Why Mapping HS Rats to Founders Matters
+
+* Each HS rat genome is a mosaic of haplotype blocks inherited from eight fully inbred founder strains, and can be (in principle) traced back to founder origins.
+* Founder-specific haplotypes, especially from genetically distinct strains like BN, are easier to identify due to unique SNP signatures.
+* Dense SNP data would ideally allow “color-coding” each chromosome segment by founder origin, improving interpretability and mapping resolution.
+* Fully phased genotypes (assigning parent-of-origin to each haplotype) provide the highest power for trait mapping—but are often unavailable in HS data.
+* Founder haplotypes carry complex structural variants (e.g., mobile elements) that SNPs alone may miss, enabling richer variant discovery beyond SNP-level variation.
+
+## Practical steps to clean, infer and generate haplotypes for HS rats 
+
+### Step 1: QC/QA on the raw data 
+* There are many tools used for checking the quality of genotypes before any downstream analysis. Deciding which tool to pick, depends on the file format (vcf, bed, etc), type of downstream analysis, and computational efficiency. 
+* In this case, BCFtools was selected for its simplicity, efficiency, and multiple options for analysis 
+  => https://www.htslib.org/doc/1.0/bcftools.html. This is the link to more details on bcftools 
+* A) Filtering MAF (minor allele frequency) less than 20% 
+```sh 
+bcftools filter -e 'MAF < 0.2' -Oz -o output.vcf.gz input.vcf.gz 
+```
+* B) Filtering low quality snps 
+```sh 
+bcftools view -i 'QUAL>20 && DP>10' input.vcf.gz -o filtered.vcf.gz 
+```
+ * Many other options to explore, however this will depend with one's objectives to filtering the vcf file 
+
+### Step 2: Processing founders 
+* The original vcf founder file contains 42 founder strains, which are homozygous. But we only need to select 8 of the 42. 
+* The 8 founders include: 
+ - ACI/N
+ - BN/SsN
+ - BUF/N
+ - F344/N
+ - M520/N
+ - MR/N
+ - WKY/N
+ - WN/N
+*  We still use bcftools to select these 8 founders
+```sh 
+## create a file containing list of the 8 founder strain names 
+## use it to filter the strains to 8 founders 
+bcftools view -S samples.txt input.vcf -o output.vcf 
+```
+* Another important thing is to sync the ref genome used to generate founder vcf and the current outbred vcf. Usually, the founder vcf needs to be lifted over to match the upto date ref genome used on the outbred vcf 
+* CrossMap is a program used to convert genome coordinates between different assemblies thus, snycing the two vcf references 
+ => https://crossmap.sourceforge.net/. Here's the link for more details on CrossMap 
+* What is needed as input for the uplifting? 
+ - assembly.chain/liftover file (containing coordinate conversions) 
+ - vcf file to be processed (in this case, the founder file) 
+ - up-to-date reference genome 
+* The following is run to generate an liftover founder vcf that matches the latest reference genome, in terms of genome coordinates
+```sh 
+CrossMap vcf rn5ToRn7.over.chain ./HS_rats_8-founders_snps_homozygous.filtered.vcf.gz GCF_015227675.2_mRatBN7.2_genomic.chr.fa ./HS_rats_8-founders_snps_homozygous.filtered_lifted.vcf.gz
+``` 
+ => https://genome.ucsc.edu/cgi-bin/hgLiftOver. Here's the link on more details about the liftover concept 
+
+### Step 3: Phasing founders and outbred vcfs 
+* This step involved using beagle, to perform statistical phasing to estimate parents of origin for each allele type and/or snp per chromosome 
+* This does not end here, as in the next steps, we need to design a way to infer and separate founder confoundings on the outbred snps. 
+```sh 
+java -Xmx4g -jar ./beagle.27Feb25.75f.jar gt=./input{founder/outbred}.vcf.gz out=./output_phased impute=true nthreads=10
+``` 
+
+### Step 4: Dealing with founder confounding on the outbred HS rats snps 
+* The HS outbred snps are a genetic mosaic of the 8 founder strains, after 80 generations of crossing. So for mapping reasons, we need to separate the founder layers in the outbred snps, as these present confoundings that are technically noise on one aspect, though useful when fine mapping is involved 
+* So, the following were steps taken to infer genotypes to their founders and estimate how unique or similar they were to the founders. This helped us separate snps independent of founders' confounding 
+ - Select common markers from both files, sorts them, and deals with any missing snp  
+ - Extracts genotypes from the phased HS outbred vcf into maternal and paternal alleles (e.g; 0|1 => C|T)  
+ - For HS founders vcf, assuming their homozygosity, only picks one allele per SNP (e.g; 0|0 => C) 
+ - Compares each HS rat's maternal and paternal alleles to the 8 founders alleles at each SNP 
+ - Identifies SNPs where an HS haplotype differs from at least 80% of founders (6 out of 8, set by min_diff_pct=80) 
+ - Generates an outbred vcf file that only contains distinctive snps from founders (at least 80%) 
+
+* The script; 
+```python 
+#!/usr/bin/env python3 
+
+import pandas as pd
+import numpy as np
+import os
+import gzip
+import csv
+
+def normalize_chrom(chrom):
+    return str(chrom).lower().replace("chr", "")
+
+def get_vcf_positions(vcf_file, chrom="1", min_call_rate=0.95):
+    positions = set()
+    with gzip.open(vcf_file, 'rt') as f:
+        reader = csv.reader(f, delimiter='\t')
+        for row in reader:
+            if row[0].startswith('#'):
+                continue
+            norm_chrom = normalize_chrom(row[0])
+            if norm_chrom != chrom:
+                continue
+            pos = int(row[1])
+            format_field = row[8]
+            if 'GT' not in format_field:
+                continue
+            gt_index = format_field.split(':').index('GT')
+            gts = [sample.split(':')[gt_index] for sample in row[9:]]
+            call_count = sum(1 for gt in gts if gt not in ['./.', '.|.'])
+            call_rate = call_count / len(gts) if len(gts) > 0 else 0
+            if call_rate >= min_call_rate:
+                positions.add(pos)
+    return positions
+
+def load_genotypes_at_positions(vcf_file, positions, is_founder=False):
+    genotypes = {pos: [] if is_founder else {} for pos in positions}
+    with gzip.open(vcf_file, 'rt') as f:
+        reader = csv.reader(f, delimiter='\t')
+        header = next(reader)  # Skip to samples
+        while header[0].startswith('#'):
+            header = next(reader)
+        samples = header[9:]
+        for row in reader:
+            if row[0].startswith('#'):
+                continue
+            pos = int(row[1])
+            if pos not in positions:
+                continue
+            ref = row[3]
+            alt = row[4].split(',')  # Assume single ALT for simplicity
+            format_field = row[8]
+            gt_index = format_field.split(':').index('GT')
+            for i, sample_field in enumerate(row[9:]):
+                gt_str = sample_field.split(':')[gt_index]
+                if gt_str == './.' or gt_str == '.|.':
+                    allele = np.nan
+                else:
+                    gt = gt_str.split('|') if '|' in gt_str else gt_str.split('/')
+                    if len(gt) != 2:
+                        allele = np.nan
+                    else:
+                        mat_gt, pat_gt = int(gt[0]), int(gt[1])
+                        mat_allele = ref if mat_gt == 0 else alt[mat_gt - 1]
+                        pat_allele = ref if pat_gt == 0 else alt[pat_gt - 1]
+                        if is_founder:
+                            # Founders homozygous, take one allele
+                            allele = mat_allele  # Since 0|0 or 1|1
+                        else:
+                            allele = f"{mat_allele}|{pat_allele}"
+                if is_founder:
+                    genotypes[pos].append(allele)
+                else:
+                    genotypes[pos][samples[i]] = allele
+    return genotypes
+
+def load_and_intersect_vcfs(hs_vcf_file, founder_vcf_file, chrom="1", min_call_rate=0.95):
+    hs_positions = get_vcf_positions(hs_vcf_file, chrom, min_call_rate)
+    founder_positions = get_vcf_positions(founder_vcf_file, chrom, min_call_rate)
+    common_positions = sorted(hs_positions & founder_positions)
+    print(f"Test: Number of intersecting positions: {len(common_positions)}")
+
+    hs_genotypes = load_genotypes_at_positions(hs_vcf_file, common_positions, is_founder=False)
+    founder_genotypes = load_genotypes_at_positions(founder_vcf_file, common_positions, is_founder=True)
+
+    # To DataFrames
+    snp_info = pd.DataFrame({'chr': chrom, 'bp_pos': common_positions, 'pos_mb': [p / 1e6 for p in common_positions]})
+    hs_df = pd.DataFrame([hs_genotypes[pos] for pos in common_positions])
+    founder_df = pd.DataFrame([founder_genotypes[pos] for pos in common_positions])
+
+    # Filter missing
+    keep_snps = hs_df.notna().all(axis=1) & founder_df.notna().all(axis=1)
+    snp_info = snp_info[keep_snps].reset_index(drop=True)
+    hs_df = hs_df[keep_snps].reset_index(drop=True)
+    founder_df = founder_df[keep_snps].reset_index(drop=True)
+
+    print(f"Test: Number of intersecting SNPs after filtering: {len(snp_info)}")
+    print(f"Test: HS genotypes shape: {hs_df.shape}")
+    print(f"Test: Founder genotypes shape: {founder_df.shape}")
+    print("Test: First 5 SNPs of first HS sample:")
+    print(hs_df.iloc[:5, 0])
+    print("Test: First 5 SNPs of founders:")
+    print(founder_df.iloc[:5])
+
+    return hs_df, founder_df, snp_info
+
+# The rest remains the same as previous: identify_distinctive_positions, create_filtered_vcf, main
+
+def identify_distinctive_positions(hs_genotypes, founder_genotypes, snp_info, min_diff_pct=80):
+    n_snps, n_samples = hs_genotypes.shape
+    n_founders = founder_genotypes.shape[1]
+    min_diff_founders = int(n_founders * (min_diff_pct / 100))
+    distinctive_pos = set()
+
+    chunk_size = 10000
+    for start in range(0, n_snps, chunk_size):
+        end = min(start + chunk_size, n_snps)
+        hs_chunk = hs_genotypes.iloc[start:end].values
+        founder_chunk = founder_genotypes.iloc[start:end].values.astype(str)
+
+        for sample_idx in range(n_samples):
+            sample_col = hs_chunk[:, sample_idx]
+            valid_mask = ~pd.isna(sample_col)
+            if not np.any(valid_mask):
+                continue
+
+            mat_alleles = np.array([x.split('|')[0] if pd.notna(x) else np.nan for x in sample_col])
+            pat_alleles = np.array([x.split('|')[1] if pd.notna(x) else np.nan for x in sample_col])
+
+            for alleles in [mat_alleles, pat_alleles]:
+                valid_alleles = alleles[valid_mask]
+                if len(valid_alleles) == 0:
+                    continue
+                diff_counts = np.sum(founder_chunk[valid_mask] != valid_alleles[:, np.newaxis], axis=1)
+                distinctive_mask = diff_counts >= min_diff_founders
+                if np.any(distinctive_mask):
+                    local_indices = np.where(distinctive_mask)[0]
+                    global_indices = start + np.where(valid_mask)[0][local_indices]
+                    distinctive_pos.update(snp_info.iloc[global_indices]['bp_pos'])
+
+    print(f"Test: Number of distinctive positions found: {len(distinctive_pos)}")
+    return distinctive_pos
+
+def create_filtered_vcf(hs_vcf_file, distinctive_pos, output_vcf_file):
+    with gzip.open(hs_vcf_file, 'rt') as infile, gzip.open(output_vcf_file, 'wt') as outfile:
+        for line in infile:
+            if line.startswith('#'):
+                outfile.write(line)
+                continue
+            fields = line.strip().split('\t')
+            pos = int(fields[1])
+            if pos in distinctive_pos:
+                outfile.write(line)
+
+    print(f"Filtered VCF saved to {output_vcf_file}")
+
+def main(hs_vcf_file, founder_vcf_file, chrom="1", output_dir="output"):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    hs_df, founder_df, snp_info = load_and_intersect_vcfs(hs_vcf_file, founder_vcf_file, chrom)
+    distinctive_pos = identify_distinctive_positions(hs_df, founder_df, snp_info, min_diff_pct=80)
+    output_vcf_file = f"{output_dir}/filtered_hs_chr1.vcf.gz"
+    create_filtered_vcf(hs_vcf_file, distinctive_pos, output_vcf_file)
+    print(f"Final filtered VCF saved to {output_vcf_file}")
+
+if __name__ == "__main__":
+    hs_vcf_file = "/home/fetche-lab/Desktop/gn_remote/HS_rats/to_experiment/vcf_genotypes_rn7/new_testing_hs-smoothing/data/final_vcf_to_rqtl2/ratgtex_v3_round10_4.rn7-filtered_chr1_phased.vcf.gz"
+    founder_vcf_file = "/home/fetche-lab/Desktop/gn_remote/HS_rats/to_experiment/vcf_genotypes_rn7/new_testing_hs-smoothing/data/final_vcf_to_rqtl2/cleaned_founders_dedup_chr1.phased.vcf.gz"
+    main(hs_vcf_file, founder_vcf_file, chrom="1", output_dir="output")
+
+```
+
+
+### Step 5: Generating Haplotype blocks 
+* With PLINK, it was possible to generate marginal haplotype blocks for the new outbred vcf file free of founders confounding 
+* The scripts used:
+ 
+```sh 
+plink --vcf filtered_hs_chr1.vcf.gz --blocks --out HS_haplo_blocks_chr1
+
+plink --vcf filtered_hs_chr1.vcf.gz --blocks no-pheno-req --blocks-max-kb 2000 --blocks-strong-lowci 0.60 --blocks-strong-highci 0.95 --out HS_haplo_blocks_chr1
+ 
+```
+
+* Then, use the generated marker positions from the plink output to finally filter the vcf file and reformat it to GN2 data format 
+* Generate a simple genotype file from the outbred vcf with distinctive snps 
+```sh 
+## Generate genotype file from the vcf 
+(echo -e "CHROM\tPOS\tID$(bcftools query -l filtered_hs_chr1.vcf.gz | awk '{printf "\t%s", $0}')";  bcftools query  -f '%CHROM\t%POS\t%ID[\t%GT]\n' filtered_hs_chr1.vcf.gz) > hs_genotypes.txt
+```
+
+* Generate final genotype file with haploblocks instead using the output from plink 
+```python 
+import pandas as pd
+genotypes = pd.read_csv("./hs_genotypes.txt", sep="\t")
+genotypes.head()
+blocks = pd.read_csv("./HAPLOTYPE_positions.txt", sep="\t")
+blocks.head()
+filtered_genotypes  = genotypes[genotypes["POS"].isin(blocks["haploEdges"])]
+filtered_genotypes.shape
+filtered_genotypes.head()
+geno_cols = filtered_genotypes.columns.difference(['CHROM', 'POS', 'ID'])
+geno_map = {'0|0':'A', '0|1':'H', '1|0':'H', '1|1':'B'}
+filtered_genotypes[geno_cols] = filtered_genotypes[geno_cols].replace(geno_map)
+filtered_genotypes.head()
+def format_marker(marker): 
+    if isinstance(marker, str) and ":" in marker:
+        chrom, pos = marker.split(":") 
+        try:
+            return f'hsr{int(pos):09d}'
+        except ValueError:
+            return marker 
+    return marker
+filtered_genotypes["ID"] = filtered_genotypes["ID"].apply(format_marker)
+filtered_genotypes.head()
+filtered_genotypes["CHROM"] = filtered_genotypes["CHROM"].str.replace('chr', '', regex=False)
+filtered_genotypes.head()
+filtered_genotypes["POS"] = filtered_genotypes["POS"]/1000000
+filtered_genotypes.head()
+filtered_genotypes.rename(columns={"CHROM":"Chr", "POS":"Mb", "ID":"Locus"}, inplace=True)
+filtered_genotypes.head()
+filtered_genotypes.insert(2, "cM", filtered_genotypes["Mb"])
+filtered_genotypes.head()
+new_order_cols = ["Chr", "Locus", "Mb", "cM"] + [col for col in filtered_genotypes.columns if col not in ["Chr", "Locus", "Mb", "cM"]]
+filtered_genotypes = filtered_genotypes[new_order_cols]
+filtered_genotypes.head()
+hs_metadata = [
+    '## This file has genotype data representing HS (Heterogeneous Stock) rats from Abe’s group (RatGTEx)',
+    '## It represents liver and adipose tissues, which have their own separate genotype file',
+    '## It covers chromosome one for testing purposes for now', 
+    '## Rat assembly used is rn7 (mRatBN7.2) genome assembly',  
+    '## `ref` refers to the homozygous reference allele',
+    '## `alt` refers to the homozygous alternative allele',
+    '## `het` refers to the heterozygous alleles, containing one allele from ref and the other from alt',
+    '## `unk` represents all unknown genotypes',
+    '## the marker ids were formatted so that the include {`hsr` + `position value`} = `hsrxxxxx`', 
+    '## `type` represents cross type, in this case its Heterogeneous Stock cross, derived from 8 inbred strains',
+    ' ',
+    '@name: HS-RATS-RatGTEx',
+    '@type: Heterogeneous Stock (HS) cross',
+    '@ref:A',
+    '@alt:B',
+    '@het:H',
+    '@unk:U',
+    ' '
+]
+hs_output = "./ratgtex_10_4_chr1-Haplotypes.geno"
+with open(hs_output, 'w') as f:
+    for line in hs_metadata:
+        f.write(line + '\n') 
+    filtered_genotypes.to_csv(f, sep="\t", index=False)
+
+```  
+
+* The file is then ready for mapping tests 
+
+
