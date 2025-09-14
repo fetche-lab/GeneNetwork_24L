@@ -153,7 +153,7 @@ options:
 
 
 ```
-> * Source code is found in this link: 
+> * Source code is found in this link:  [distinctive_snps.py](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/HS_rats/codes/distinctive_snps.py)
 
 > * The second part is the one that splits the founders and hs vcf files to be processed chromosome-wise, then merged at the end of the process; 
 ```sh 
@@ -180,8 +180,8 @@ options:
                         Prefix for Founder chromosomes (default:'').
 
 ```
-> * Source code is found in this link: 
-
+> * Source code is found in this link: [inferring_pipeline.py](https://github.com/fetche-lab/GeneNetwork_24L/blob/main/Data_processing/HS_rats/codes/inferring_pipeline.py)
+ 
 ### Step 5: Generating Haplotype blocks 
 * With PLINK, it was possible to generate marginal haplotype blocks for the new outbred vcf file free of founders confounding 
 * The scripts used:
