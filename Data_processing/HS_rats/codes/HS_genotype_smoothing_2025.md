@@ -441,3 +441,96 @@ plt.show()
 
 ```
 
+### Step 7: Generate genotypes files for gn2 format 
+* Generate a simple genotype file from the outbred vcf with distinctive snps 
+```sh 
+## Generate genotype file from the vcf 
+(echo -e "CHROM\tPOS\tID$(bcftools query -l filtered_hs_chr1.vcf.gz | awk '{printf "\t%s", $0}')";  bcftools query  -f '%CHROM\t%POS\t%ID[\t%GT]\n' filtered_hs_chr1.vcf.gz) > hs_genotypes.txt
+```
+
+* Generate final genotype file using the haplo edges as inclusive markers 
+
+```python
+#!/usr/bin/env python3
+
+import pandas as pd
+
+# Input files
+geno = "/path_to_genotype_file/genotypes.txt"
+edges = "/path_to_edges_file/edge_markers.txt"
+hs_output = "/path_to_the_output_file/genotypes.geno"
+
+# Load haplotype block positions into sets for fast lookup
+blocks = set(pd.read_csv(edges, sep="\t")["haploEdges"].values)
+
+# Mapping genotypes
+geno_map = {'0|0': 'A', '0|1': 'H', '1|0': 'H', '1|1': 'B'}
+
+# Metadata header
+hs_metadata = [
+    '## This file has genotype data representing HS (Heterogeneous Stock) rats from Abe’s group (RatGTEx)',
+    '## It represents 10 other tissues, except the adipose and liver tissues, which have their own separate genotype file',
+    '## There are chromosomes 1 to 20',
+    '## Rat assembly used is rn7 (mRatBN7.2) genome assembly',
+    '## `ref` = homozygous reference allele',
+    '## `alt` = homozygous alternative allele',
+    '## `het` = heterozygous alleles (ref + alt)',
+    '## `unk` = unknown genotype',
+    '## Marker IDs formatted as {hsr + position}',
+    '@name: HS-RATS-RatGTEx',
+    '@type: Heterogeneous Stock (HS) cross',
+    '@ref:A',
+    '@alt:B',
+    '@het:H',
+    '@unk:U',
+    ''
+]
+
+# Write metadata first
+with open(hs_output, "w") as f:
+    for line in hs_metadata:
+        f.write(line + "\n")
+
+# Helper function to process a chunk
+def process_chunk(chunk, keep_positions):
+    # Filter rows
+    chunk = chunk[chunk["POS"].isin(keep_positions)]
+
+    if chunk.empty:
+        return None
+
+    # Replace genotypes
+    geno_cols = chunk.columns.difference(['CHROM', 'POS', 'ID'])
+    chunk.loc[:, geno_cols] = chunk[geno_cols].replace(geno_map)
+
+    # Reformat marker IDs
+    def format_marker(marker):
+        if isinstance(marker, str) and ":" in marker:
+            chrom, pos = marker.split(":")
+            try:
+                return f'hsr{int(pos):09d}'
+            except ValueError:
+                return marker
+        return marker
+    chunk.loc[:, "ID"] = chunk["ID"].apply(format_marker)
+
+    # Clean CHROM and scale POS
+    chunk.loc[:, "CHROM"] = chunk["CHROM"].str.replace("chr", "", regex=False)
+    chunk.loc[:, "POS"] = chunk["POS"] / 1_000_000
+
+    # Rename columns
+    chunk = chunk.rename(columns={"CHROM": "Chr", "POS": "Mb", "ID": "Locus"})
+    chunk.insert(2, "cM", chunk["Mb"])
+
+    # Reorder columns
+    new_order = ["Chr", "Locus", "Mb", "cM"] + [c for c in chunk.columns if c not in ["Chr", "Locus", "Mb", "cM"]]
+    return chunk[new_order]
+
+# Process both genotype files in chunks
+for geno_file, keep_positions in (geno, blocks):
+    for chunk in pd.read_csv(geno_file, sep="\t", chunksize=50000):
+        processed = process_chunk(chunk, keep_positions)
+        if processed is not None:
+            processed.to_csv(hs_output, sep="\t", index=False, mode="a", header=True)
+
+```
