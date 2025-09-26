@@ -32,7 +32,7 @@
 
 * Defining proximal/distal SNPs per haplotype block and applying MAF > 20% greatly improved genotype clarity, enabling reliable identification of long haplotype runs.
 
-* Spurious recombinations (e.g., at Marker 25 and 41) often result from either mispositioned markers or poor-quality SNPs—these should be flagged for exclusion or correction.
+* Spurious recombinations often result from either mispositioned markers or poor-quality SNPs—these should be flagged for exclusion or correction.
 
 * Recombination smoothing is now the priority: count and analyze per-rat and per-marker recombination flips to identify poor-quality samples (e.g., erratic genotypes like in animal 57241-5) and overly disruptive markers.
 
@@ -117,14 +117,6 @@ java -Xmx4g -jar ./beagle.27Feb25.75f.jar gt=./input{founder/outbred}.vcf.gz out
 
 ### Step 4: Dealing with founder confounding on the outbred HS rats snps 
 * The HS outbred snps are a genetic mosaic of the 8 founder strains, after 80 generations of crossing. So for mapping reasons, we need to separate the founder layers in the outbred snps, as these present confoundings that are technically noise on one aspect, though useful when fine mapping is involved 
-
-* So, the following were steps taken to infer genotypes to their founders and estimate how unique or similar they were to the founders. This helped us separate snps independent of founders' confounding 
-    - Select common markers from both files, sorts them, and deals with any missing snp  
-    - Extracts genotypes from the phased HS  vcf into maternal and paternal alleles (e.g; 0|1 => C|T)  
-    - For HS founders vcf, assuming their homozygosity, only picks one allele per SNP (e.g; 0|0 => C) 
-    - Compares each HS rat's maternal and paternal alleles to the 8 founders alleles at each SNP 
-    - Identifies SNPs where an HS haplotype differs from at least 80% of founders (6 out of 8, set by min_diff_pct=80) 
-    - Generates an HS vcf file that only contains distinctive snps from founders (at least 80%) 
 
 * The scripts contain two parts; 
 > * The first part is the core part that actually generates snps independent of the founder's confounding effect 
@@ -469,7 +461,7 @@ geno_map = {'0|0': 'A', '0|1': 'H', '1|0': 'H', '1|1': 'B'}
 # Metadata header
 hs_metadata = [
     '## This file has genotype data representing HS (Heterogeneous Stock) rats from Abe’s group (RatGTEx)',
-    '## It represents 10 other tissues, except the adipose and liver tissues, which have their own separate genotype file',
+    '## Two version of the file. round10_4 represents rats in liver and adipose cohorts. round10_5 represents rats in Basolateral amygdala, Brain hemisphere, Eye, Infralimbic cortex,  Lateral habenula, Nucleus accumbens core, Orbitofrontal cortex, Prelimbic cortex, Posterior ventral tegmental area, and Rostromedial tegmental nucleus cohorts', 
     '## There are chromosomes 1 to 20',
     '## Rat assembly used is rn7 (mRatBN7.2) genome assembly',
     '## `ref` = homozygous reference allele',
