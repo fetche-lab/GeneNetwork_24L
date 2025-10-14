@@ -346,90 +346,97 @@ print("[INFO] Finished processing all chunks!")
 
 * Now we generate plots 
 
-```python 
-#!/usr/bin/env python3 
+```R
 
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
+#!/usr/bin/env Rscript
 
-# Load data (assuming 'chr' and 'ps' columns exist)
-df = pd.read_csv(
-    "/home/fetche-lab/Desktop/gn_remote/HS_rats/data/processed/hs_qc_qa/phased/simple_processing/data/processed/final_vcfs_10_4/genotypes/bimbam/output/10_4.all.smoothed1.lmm.assoc.txt",
-    sep="\t"
+# -------------------------
+# Setup
+# -------------------------
+setwd("/home/fetche-lab/Desktop/gn_remote/HS_rats/data/processed/hs_qc_qa/phased/simple_processing/data/processed/final_vcfs_10_4/genotypes/bimbam/output/")
+
+if(!require(qqman)) install.packages("qqman", repos='https://cloud.r-project.org')
+if(!require(dplyr)) install.packages("dplyr", repos='https://cloud.r-project.org')
+library(qqman)
+library(dplyr)
+
+# -------------------------
+# Function to load + process GWAS results
+# -------------------------
+process_gwas <- function(file, label) {
+  df <- read.table(file, header=TRUE, sep="\t", stringsAsFactors = FALSE)
+  
+  df <- df %>%
+    mutate(
+      CHR = as.numeric(gsub("chr", "", chr)),
+      BP = as.numeric(ps),
+      SNP = rs,
+      P = as.numeric(p_wald)
+    ) %>%
+    filter(!is.na(P) & P > 0) %>%
+    arrange(CHR, BP)
+  
+  df$FDR <- p.adjust(df$P, method = "fdr")
+  df$logp <- -log10(df$P)
+  df$fdr_thr <- max(df$P[df$FDR < 0.05], na.rm = TRUE)
+  df$dataset <- label
+  return(df)
+}
+
+# -------------------------
+# Load both datasets
+# -------------------------
+smoothed <- process_gwas("10_4.all.smoothed1.lmm.assoc.txt", "Smoothed haplotypes")
+unsmoothed <- process_gwas("10_4.all.unsmoothed.lmm.assoc.txt", "Unsmoothed genotypes")
+
+# -------------------------
+# Shared y-limit and threshold
+# -------------------------
+combined <- bind_rows(smoothed, unsmoothed)
+y_max <- ceiling(max(combined$logp, na.rm = TRUE))
+shared_fdr_thr <- -log10(min(unique(c(smoothed$fdr_thr, unsmoothed$fdr_thr)), na.rm = TRUE))
+
+cat("Shared FDR line at -log10(p) =", round(shared_fdr_thr, 2), "\n")
+cat("Shared Y-axis limit =", y_max, "\n")
+
+# -------------------------
+# Plot smoothed
+# -------------------------
+#pdf("compared_manhattan/HS_smoothed_FDR_qqman.pdf", width=12, height=6)
+png("compared_manhattan/HS_smoothed_FDR_qqman.png", 
+    width = 3000, height = 1500, res = 300)  # High-resolution
+
+manhattan(
+  smoothed,
+  chr = "CHR", bp = "BP", p = "P", snp = "SNP",
+  main = "HS smoothed haplotypes (FDR-adjusted)",
+  col = c("#4C72B0", "#55A868"),
+  cex = 0.3, cex.axis = 0.8,
+  genomewideline = shared_fdr_thr, # same for both
+  ylim = c(0, y_max),
+  suggestiveline = FALSE
 )
+dev.off()
 
-# Convert p-values to -log10 scale
-df["-log10p"] = -np.log10(df["p_wald"])
-
-# Bonferroni genome-wide threshold
-bonf_threshold = -np.log10(0.05 / len(df))
-suggestive_threshold = -np.log10(1e-5)
-
-# Identify the top SNP
-top_snp = df.loc[df["p_wald"].idxmin()]
-
-# Sort by chromosome and position
-df["chr"] = df["chr"].astype(str).str.replace("chr", "")  # cleanup if needed
-df["chr"] = df["chr"].astype(int)  # ensure numeric sorting
-df = df.sort_values(["chr", "ps"])
-
-# Create a cumulative position for plotting
-chr_offsets = {}
-cumulative_bp = 0
-xticks = []
-xlabels = []
-
-for chrom in sorted(df["chr"].unique()):
-    chr_min = df.loc[df["chr"] == chrom, "ps"].min()
-    chr_max = df.loc[df["chr"] == chrom, "ps"].max()
-    
-    chr_offsets[chrom] = cumulative_bp - chr_min
-    cumulative_bp += chr_max
-    
-    # midpoint for x-axis labeling
-    xticks.append((df.loc[df["chr"] == chrom, "ps"].median() + chr_offsets[chrom]))
-    xlabels.append(f"{chrom}")
-
-df["pos_cum"] = df.apply(lambda row: row["ps"] + chr_offsets[row["chr"]], axis=1)
-
-# Plot Manhattan
-plt.figure(figsize=(18, 9))
-
-colors = ["#4C72B0", "#55A868"]  # alternating colors
-for i, chrom in enumerate(sorted(df["chr"].unique())):
-    subset = df[df["chr"] == chrom]
-    plt.scatter(
-        subset["pos_cum"],
-        subset["-log10p"],
-        c=colors[i % len(colors)],
-        s=10,
-        alpha=0.7
-        #label=f"chr{chrom}" if i < 2 else None  # avoid cluttering legend
-    )
-
-# Highlight top SNP
-plt.scatter(
-    top_snp["ps"] + chr_offsets[top_snp["chr"]],
-    top_snp["-log10p"],
-    c="red",
-    s=50,
-    edgecolor="black",
-    label=f"Top SNP ({top_snp['rs']})"
+# -------------------------
+# Plot unsmoothed
+# -------------------------
+#pdf("compared_manhattan/HS_unsmoothed_FDR_qqman.pdf", width=12, height=6)
+png("compared_manhattan/HS_unsmoothed_FDR_qqman.png", 
+    width = 3000, height = 1500, res = 300)  # High-resolution
+manhattan(
+  unsmoothed,
+  chr = "CHR", bp = "BP", p = "P", snp = "SNP",
+  main = "HS unsmoothed genotypes (FDR-adjusted)",
+  col = c("#4C72B0", "#55A868"),
+  cex = 0.3, cex.axis = 0.8,
+  genomewideline = shared_fdr_thr,
+  ylim = c(0, y_max),
+  suggestiveline = FALSE
 )
+dev.off()
 
-# Threshold lines
-plt.axhline(y=bonf_threshold, color="red", linestyle="--", label="Bonferroni")
-plt.axhline(y=suggestive_threshold, color="orange", linestyle="--", label="Suggestive")
-
-# Labels & formatting
-plt.xticks(xticks, xlabels, rotation=0)
-plt.xlabel("Chromosome")
-plt.ylabel("-log10(p-value)")
-plt.title("HS original genotypes GWAS Manhattan Plot (20 chromosomes)")
-plt.legend()
-plt.tight_layout()
-plt.show()
+cat("\nBoth plots saved with identical y-axis scaling and FDR threshold line.\n")
 
 ```
 
@@ -526,3 +533,4 @@ for geno_file, keep_positions in (geno, blocks):
             processed.to_csv(hs_output, sep="\t", index=False, mode="a", header=True)
 
 ```
+
