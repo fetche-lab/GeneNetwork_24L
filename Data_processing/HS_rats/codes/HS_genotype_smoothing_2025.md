@@ -357,8 +357,11 @@ setwd("/home/fetche-lab/Desktop/gn_remote/HS_rats/data/processed/hs_qc_qa/phased
 
 if(!require(qqman)) install.packages("qqman", repos='https://cloud.r-project.org')
 if(!require(dplyr)) install.packages("dplyr", repos='https://cloud.r-project.org')
+if(!require(ggrepel)) install.packages("ggrepel", repos='https://cloud.r-project.org')
+
 library(qqman)
 library(dplyr)
+library(ggrepel)
 
 # -------------------------
 # Function to load + process GWAS results
@@ -400,43 +403,103 @@ cat("Shared FDR line at -log10(p) =", round(shared_fdr_thr, 2), "\n")
 cat("Shared Y-axis limit =", y_max, "\n")
 
 # -------------------------
-# Plot smoothed
+# Helper to add annotation using ggplot
 # -------------------------
-#pdf("compared_manhattan/HS_smoothed_FDR_qqman.pdf", width=12, height=6)
-png("compared_manhattan/HS_smoothed_FDR_qqman.png", 
-    width = 3000, height = 1500, res = 300)  # High-resolution
 
-manhattan(
-  smoothed,
-  chr = "CHR", bp = "BP", p = "P", snp = "SNP",
-  main = "HS smoothed haplotypes (FDR-adjusted)",
-  col = c("#4C72B0", "#55A868"),
-  cex = 0.3, cex.axis = 0.8,
-  genomewideline = shared_fdr_thr, # same for both
-  ylim = c(0, y_max),
-  suggestiveline = FALSE
-)
-dev.off()
+plot_with_labels <- function(df, title, outfile) {
+  
+  # --- Get top 10 SNPs ---
+  top_snps <- df %>% arrange(P) %>% slice_head(n = 10)
+  cat("\nTop 10 SNPs for", title, ":\n")
+  print(top_snps$SNP)
+  
+  # --- Prepare data for plotting ---
+  man_df <- na.omit(df[, c("CHR", "BP", "P", "SNP")])
+  man_df$logp <- -log10(man_df$P)
+  
+  chr_info <- man_df %>%
+    group_by(CHR) %>%
+    summarize(chr_len = max(BP, na.rm = TRUE)) %>%
+    mutate(tot = cumsum(chr_len) - chr_len)
+  
+  man_df <- man_df %>%
+    inner_join(chr_info[, c("CHR", "tot")], by="CHR") %>%
+    mutate(BP_cum = BP + tot)
+  
+  axis_df <- man_df %>%
+    group_by(CHR) %>%
+    summarize(center = (min(BP_cum) + max(BP_cum)) / 2)
+  
+  # --- Determine best corner for annotation ---
+  left_density  <- mean(man_df$logp[man_df$BP_cum < max(man_df$BP_cum) * 0.5])
+  right_density <- mean(man_df$logp[man_df$BP_cum > max(man_df$BP_cum) * 0.5])
+  
+  if (right_density < left_density) {
+    x_pos <- max(man_df$BP_cum, na.rm = TRUE) * 0.85
+    hjust_val <- 0
+  } else {
+    x_pos <- max(man_df$BP_cum, na.rm = TRUE) * 0.15
+    hjust_val <- 1
+  }
+  
+  # --- Compose legend text ---
+  annot_text <- paste0(
+    "FDR = 0.05 ( -log10(p) ≈ ", round(shared_fdr_thr, 2), " )\n",
+    "Top SNPs = 10 (lowest p-values)"
+  )
+  
+  # --- Build plot ---
+  p <- ggplot(man_df, aes(x=BP_cum, y=logp, color=factor(CHR %% 2))) +
+    geom_point(alpha=0.7, size=0.3) +
+    scale_color_manual(values=c("#4C72B0", "#55A868"), guide="none") +
+    geom_hline(yintercept=shared_fdr_thr, color="red", linetype="dashed", linewidth=0.8) +
+    geom_point(data=top_snps, aes(x=BP + chr_info$tot[CHR], y=-log10(P)), color="red", size=1.5) +
+    geom_text_repel(data=top_snps, aes(x=BP + chr_info$tot[CHR], y=-log10(P), label=SNP),
+                    size=2.5, color="black", box.padding=0.3, point.padding=0.1,
+                    max.overlaps=30, segment.color="grey60") +
+    scale_x_continuous(label=axis_df$CHR, breaks=axis_df$center) +
+    ylim(0, y_max) +
+    labs(title=title, x="Chromosome", y=expression(-log[10](p))) +
+    theme_minimal(base_size = 13) +
+    theme(
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      plot.title = element_text(face="bold", hjust=0.5)
+    ) +
+    # --- Dynamic legend annotation ---
+    annotate("text",
+             x = x_pos,
+             y = y_max * 0.9,
+             label = annot_text,
+             hjust = hjust_val,
+             size = 3.5,
+             color = "black",
+             fontface = "italic") +
+    annotate("segment",
+             x = x_pos - (if (hjust_val == 0) 0.01 else -0.01) * max(man_df$BP_cum),
+             xend = x_pos + (if (hjust_val == 0) 0.08 else -0.08) * max(man_df$BP_cum),
+             y = shared_fdr_thr,
+             yend = shared_fdr_thr,
+             colour = "red",
+             linetype = "dashed",
+             linewidth = 0.6)
+  
+  # --- Save the plot ---
+  ggsave(outfile, plot=p, width=12, height=6, dpi=300)
+  cat("Saved:", outfile, "\n")
+}
+
 
 # -------------------------
-# Plot unsmoothed
+# Generate annotated plots
 # -------------------------
-#pdf("compared_manhattan/HS_unsmoothed_FDR_qqman.pdf", width=12, height=6)
-png("compared_manhattan/HS_unsmoothed_FDR_qqman.png", 
-    width = 3000, height = 1500, res = 300)  # High-resolution
-manhattan(
-  unsmoothed,
-  chr = "CHR", bp = "BP", p = "P", snp = "SNP",
-  main = "HS unsmoothed genotypes (FDR-adjusted)",
-  col = c("#4C72B0", "#55A868"),
-  cex = 0.3, cex.axis = 0.8,
-  genomewideline = shared_fdr_thr,
-  ylim = c(0, y_max),
-  suggestiveline = FALSE
-)
-dev.off()
+plot_with_labels(smoothed, "HS Smoothed Haplotypes",
+                 "compared_manhattan/HS_smoothed_FDR_top10.png")
 
-cat("\nBoth plots saved with identical y-axis scaling and FDR threshold line.\n")
+plot_with_labels(unsmoothed, "HS Unsmoothed Genotypes",
+                 "compared_manhattan/HS_unsmoothed_FDR_top10.png")
+
+cat("\nBoth annotated Manhattan plots saved with same y-scale and threshold.\n")
 
 ```
 
