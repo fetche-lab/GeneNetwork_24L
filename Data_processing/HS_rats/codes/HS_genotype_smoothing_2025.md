@@ -350,6 +350,11 @@ print("[INFO] Finished processing all chunks!")
 
 #!/usr/bin/env Rscript
 
+# ==========================================================
+# Annotated Manhattan Plot with Top SNP Labels + CSV Export
+# Consistent scaling and dynamic legend for FDR and top hits
+# ==========================================================
+
 # -------------------------
 # Setup
 # -------------------------
@@ -363,9 +368,9 @@ library(qqman)
 library(dplyr)
 library(ggrepel)
 
-# -------------------------
-# Function to load + process GWAS results
-# -------------------------
+# ==========================================================
+# Function to load and process GWAS results
+# ==========================================================
 process_gwas <- function(file, label) {
   df <- read.table(file, header=TRUE, sep="\t", stringsAsFactors = FALSE)
   
@@ -386,15 +391,15 @@ process_gwas <- function(file, label) {
   return(df)
 }
 
-# -------------------------
+# ==========================================================
 # Load both datasets
-# -------------------------
+# ==========================================================
 smoothed <- process_gwas("10_4.all.smoothed1.lmm.assoc.txt", "Smoothed haplotypes")
 unsmoothed <- process_gwas("10_4.all.unsmoothed.lmm.assoc.txt", "Unsmoothed genotypes")
 
-# -------------------------
+# ==========================================================
 # Shared y-limit and threshold
-# -------------------------
+# ==========================================================
 combined <- bind_rows(smoothed, unsmoothed)
 y_max <- ceiling(max(combined$logp, na.rm = TRUE))
 shared_fdr_thr <- -log10(min(unique(c(smoothed$fdr_thr, unsmoothed$fdr_thr)), na.rm = TRUE))
@@ -402,16 +407,39 @@ shared_fdr_thr <- -log10(min(unique(c(smoothed$fdr_thr, unsmoothed$fdr_thr)), na
 cat("Shared FDR line at -log10(p) =", round(shared_fdr_thr, 2), "\n")
 cat("Shared Y-axis limit =", y_max, "\n")
 
-# -------------------------
-# Helper to add annotation using ggplot
-# -------------------------
-
+# ==========================================================
+# Function to plot annotated Manhattan plots
+# ==========================================================
 plot_with_labels <- function(df, title, outfile) {
   
   # --- Get top 10 SNPs ---
-  top_snps <- df %>% arrange(P) %>% slice_head(n = 10)
+  top_snps <- df %>%
+    arrange(P) %>%
+    slice_head(n=7) %>%
+    select(SNP, CHR, BP, P, FDR, logp)
+  
   cat("\nTop 10 SNPs for", title, ":\n")
-  print(top_snps$SNP)
+  print(top_snps)
+  
+  # --- Formatted summary in console ---
+  cat("\nFormatted summary:\n")
+  for (i in seq_len(nrow(top_snps))) {
+    cat(sprintf(
+      "%2d. SNP: %-15s  Chr: %2d  Pos: %-10d  P = %.3e  FDR = %.3e  -log10(P) = %.2f\n",
+      i,
+      top_snps$SNP[i],
+      top_snps$CHR[i],
+      top_snps$BP[i],
+      top_snps$P[i],
+      top_snps$FDR[i],
+      top_snps$logp[i]
+    ))
+  }
+  
+  # --- Save top SNPs table ---
+  csv_outfile <- gsub(".png$", "_top10_snps.csv", outfile)
+  write.csv(top_snps, file = csv_outfile, row.names = FALSE)
+  cat("Saved top SNP table to:", csv_outfile, "\n")
   
   # --- Prepare data for plotting ---
   man_df <- na.omit(df[, c("CHR", "BP", "P", "SNP")])
@@ -430,7 +458,7 @@ plot_with_labels <- function(df, title, outfile) {
     group_by(CHR) %>%
     summarize(center = (min(BP_cum) + max(BP_cum)) / 2)
   
-  # --- Determine best corner for annotation ---
+  # --- Decide where to place FDR legend (left/right) ---
   left_density  <- mean(man_df$logp[man_df$BP_cum < max(man_df$BP_cum) * 0.5])
   right_density <- mean(man_df$logp[man_df$BP_cum > max(man_df$BP_cum) * 0.5])
   
@@ -442,21 +470,24 @@ plot_with_labels <- function(df, title, outfile) {
     hjust_val <- 1
   }
   
-  # --- Compose legend text ---
+  # --- Legend text annotation ---
   annot_text <- paste0(
     "FDR = 0.05 ( -log10(p) ≈ ", round(shared_fdr_thr, 2), " )\n",
-    "Top SNPs = 10 (lowest p-values)"
+    "Top 7 SNPs (lowest p-values)"
   )
   
-  # --- Build plot ---
+  # --- Build Manhattan plot ---
   p <- ggplot(man_df, aes(x=BP_cum, y=logp, color=factor(CHR %% 2))) +
     geom_point(alpha=0.7, size=0.3) +
     scale_color_manual(values=c("#4C72B0", "#55A868"), guide="none") +
     geom_hline(yintercept=shared_fdr_thr, color="red", linetype="dashed", linewidth=0.8) +
-    geom_point(data=top_snps, aes(x=BP + chr_info$tot[CHR], y=-log10(P)), color="red", size=1.5) +
-    geom_text_repel(data=top_snps, aes(x=BP + chr_info$tot[CHR], y=-log10(P), label=SNP),
-                    size=2.5, color="black", box.padding=0.3, point.padding=0.1,
-                    max.overlaps=30, segment.color="grey60") +
+    geom_point(data=top_snps, aes(x=BP + chr_info$tot[CHR], y=-log10(P)), color="red", size=1.2) +
+    geom_text_repel(
+      data=top_snps,
+      aes(x=BP + chr_info$tot[CHR], y=-log10(P), label=SNP),
+      size=2.5, color="black", box.padding=0.3, point.padding=0.1,
+      max.overlaps=30, segment.color="grey60"
+    ) +
     scale_x_continuous(label=axis_df$CHR, breaks=axis_df$center) +
     ylim(0, y_max) +
     labs(title=title, x="Chromosome", y=expression(-log[10](p))) +
@@ -466,7 +497,6 @@ plot_with_labels <- function(df, title, outfile) {
       panel.grid.minor.x = element_blank(),
       plot.title = element_text(face="bold", hjust=0.5)
     ) +
-    # --- Dynamic legend annotation ---
     annotate("text",
              x = x_pos,
              y = y_max * 0.9,
@@ -474,32 +504,24 @@ plot_with_labels <- function(df, title, outfile) {
              hjust = hjust_val,
              size = 3.5,
              color = "black",
-             fontface = "italic") +
-    annotate("segment",
-             x = x_pos - (if (hjust_val == 0) 0.01 else -0.01) * max(man_df$BP_cum),
-             xend = x_pos + (if (hjust_val == 0) 0.08 else -0.08) * max(man_df$BP_cum),
-             y = shared_fdr_thr,
-             yend = shared_fdr_thr,
-             colour = "red",
-             linetype = "dashed",
-             linewidth = 0.6)
+             fontface = "italic")
   
-  # --- Save the plot ---
+  # --- Save final plot ---
   ggsave(outfile, plot=p, width=12, height=6, dpi=300)
-  cat("Saved:", outfile, "\n")
+  cat("Saved plot:", outfile, "\n")
 }
 
-
-# -------------------------
+# ==========================================================
 # Generate annotated plots
-# -------------------------
+# ==========================================================
 plot_with_labels(smoothed, "HS Smoothed Haplotypes",
                  "compared_manhattan/HS_smoothed_FDR_top10.png")
 
 plot_with_labels(unsmoothed, "HS Unsmoothed Genotypes",
                  "compared_manhattan/HS_unsmoothed_FDR_top10.png")
 
-cat("\nBoth annotated Manhattan plots saved with same y-scale and threshold.\n")
+cat("\nBoth annotated Manhattan plots saved with same y-scale and FDR legend.\n")
+
 
 ```
 
