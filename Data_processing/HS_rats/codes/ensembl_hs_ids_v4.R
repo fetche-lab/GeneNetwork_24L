@@ -21,10 +21,10 @@ library(readr)
 gene_file <- "gene_ids_liver.txt"
 genes <- read_tsv(gene_file, col_names = "gene_id", show_col_types = FALSE)
 
-cat("\n📂 Loaded", nrow(genes), "genes from file:", gene_file, "\n")
+cat("\n Loaded", nrow(genes), "genes from file:", gene_file, "\n")
 
 # --- Connect to Ensembl (Rat) ---
-cat("🔗 Connecting to Ensembl biomart (rat)...\n")
+cat("Connecting to Ensembl biomart (rat)...\n")
 ensembl <- useEnsembl(biomart = "genes", dataset = "rnorvegicus_gene_ensembl")
 
 # --- Define the annotation fields we want ---
@@ -44,11 +44,11 @@ attribs <- c(
 rgd_ids <- unique(genes$gene_id[grepl("^RGD", genes$gene_id, ignore.case = TRUE)])
 non_rgd_ids <- unique(genes$gene_id[!genes$gene_id %in% rgd_ids])
 
-cat("🧩 Non-RGD IDs :", length(non_rgd_ids),
-    "\n🧩 RGD IDs     :", length(rgd_ids), "\n")
+cat("Non-RGD IDs :", length(non_rgd_ids),
+    "\nRGD IDs     :", length(rgd_ids), "\n")
 
 # --- Query Ensembl: external_gene_name ---
-cat("🔍 Fetching annotations by gene name / LOC...\n")
+cat("Fetching annotations by gene name / LOC...\n")
 annot_gene <- getBM(
   attributes = attribs,
   filters = "external_gene_name",
@@ -59,7 +59,7 @@ annot_gene <- getBM(
 # --- Query Ensembl: RGD IDs ---
 annot_rgd <- data.frame()
 if (length(rgd_ids) > 0) {
-  cat("🔍 Fetching annotations by RGD symbol...\n")
+  cat("Fetching annotations by RGD symbol...\n")
   annot_rgd <- getBM(
     attributes = attribs,
     filters = "rgd_symbol",
@@ -113,7 +113,7 @@ annotated_count <- annotated_genes %>%
 missing_count <- total_genes - annotated_count
 percent_annotated <- round(annotated_count / total_genes * 100, 2)
 
-cat("\n📊 Annotation Summary:")
+cat("\nAnnotation Summary:")
 cat("\n   • Total input genes      :", total_genes)
 cat("\n   • Successfully annotated  :", annotated_count, sprintf("(%s%%)", percent_annotated))
 cat("\n   • Missing / not found     :", missing_count, "\n")
@@ -122,6 +122,6 @@ cat("\n   • Missing / not found     :", missing_count, "\n")
 out_file <- sub("\\.txt$", "_annotated_rat_1to1_v4.csv", gene_file)
 write_csv(annotated_genes, out_file)
 
-cat("\n✅ Annotation complete!")
+cat("\nAnnotation complete!")
 cat("\n   → Output file:", out_file, "\n\n")
 
